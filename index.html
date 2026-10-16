@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="旅遊">
-    <title>旅遊行程管理</title>
-    <!-- 設定手機桌面的 APP 圖示 -->
+    <meta name="apple-mobile-web-app-title" content="我的旅遊">
+    <title>旅遊行程管理 (雲端同步版)</title>
+    <!-- 設定手機桌面的 APP 圖示 (如果你有上傳 travel-bag.png) -->
     <link rel="apple-touch-icon" href="travel-bag.png">
     <link rel="icon" href="travel-bag.png">
     <style>
@@ -143,7 +143,8 @@
                 <span class="private-tag">🔒 僅自己可見</span>
                 <div>我的專屬總花費 (台幣)</div>
                 <div class="expense-total" id="totalTwd">TWD 0</div>
-                <div style="font-size: 0.8em; color: #888;">設定: 1 JPY = 0.21 / 1 KRW = 0.024</div>
+                <!-- 匯率狀態顯示區 -->
+                <div id="rateInfo" style="font-size: 0.8em; color: #888; margin-top: 8px;">🔄 正在抓取今日最新匯率...</div>
             </div>
             <div class="add-form">
                 <input type="text" id="expenseName" placeholder="花費項目 (例如: 晚餐)" style="width: 100%; margin-bottom: 10px;">
@@ -155,7 +156,7 @@
                         <option value="TWD">台幣 TWD</option>
                     </select>
                 </div>
-                <button class="btn-main" style="margin-bottom:0;" onclick="addExpense()">記一筆私人花費</button>
+                <button class="btn-main" style="margin-bottom:0;" onclick="addExpense()">記一筆私人花費 (鎖定當前匯率)</button>
             </div>
             <div id="expenseList"></div>
         </div>
@@ -195,7 +196,7 @@
         </div>
     </div>
 
-    <!-- 行程設定 Modal (大升級版) -->
+    <!-- 行程設定 Modal -->
     <div id="scheduleModal" class="modal">
         <div class="modal-content">
             <h3 id="modalTitle" style="margin-top:0;">新增行程</h3>
@@ -213,7 +214,6 @@
                 </div>
             </div>
 
-            <!-- 新增：餐廳專屬餐點類別 -->
             <div id="field_meal" class="form-group" style="display:none;">
                 <label>餐點類別 (餐廳專屬)</label>
                 <select id="f_meal">
@@ -231,13 +231,11 @@
             <div id="field_transport" class="form-group" style="display:none;"><label>交通方式</label><input type="text" id="f_transport"></div>
             <div class="form-group"><label>車資/花費</label><input type="text" id="f_cost"></div>
 
-            <!-- 新增：萬用備註欄 -->
             <div class="form-group">
                 <label>📝 備註事項</label>
                 <textarea id="f_note" rows="2" placeholder="有什麼要提醒自己的嗎？"></textarea>
             </div>
 
-            <!-- 新增：移至其他天 (僅編輯時顯示) -->
             <div id="field_move_day" class="form-group" style="display:none; margin-top:15px; padding-top:15px; border-top:1px dashed #ccc;">
                 <label style="color:var(--accent-color);">🔄 跨日移動 (想改到哪天？)</label>
                 <select id="f_move_day"></select>
@@ -277,10 +275,35 @@
         window.localExpenses = JSON.parse(localStorage.getItem('myPrivateExpenses')) || {};
         window.currentTripId = null;
         window.currentDay = 1;
-        const rates = { JPY: 0.21, KRW: 0.024, TWD: 1 };
+        
+        // 預設匯率 (防呆機制，如果沒網路時使用)
+        window.dynamicRates = { JPY: 0.21, KRW: 0.024, TWD: 1 };
 
         window.saveSharedData = function() { set(dbRef, window.sharedData); };
         window.saveLocalExpenses = function() { localStorage.setItem('myPrivateExpenses', JSON.stringify(window.localExpenses)); };
+
+        // --- 核心：自動抓取國際即時匯率 ---
+        async function fetchExchangeRates() {
+            try {
+                // 使用免費的 Open Exchange Rates API (以 TWD 為基準抓取)
+                const res = await fetch('https://open.er-api.com/v6/latest/TWD');
+                const data = await res.json();
+                if(data && data.rates) {
+                    // API 回傳的是 1 TWD = X 日幣，我們要反算成 1 日幣 = X TWD
+                    window.dynamicRates.JPY = 1 / data.rates.JPY;
+                    window.dynamicRates.KRW = 1 / data.rates.KRW;
+                    
+                    document.getElementById('rateInfo').innerHTML = `
+                        今日即時匯率: 1 JPY = ${window.dynamicRates.JPY.toFixed(4)} TWD<br>
+                        1 KRW = ${window.dynamicRates.KRW.toFixed(4)} TWD`;
+                }
+            } catch(e) {
+                console.log("匯率抓取失敗，使用預設值", e);
+                document.getElementById('rateInfo').innerText = "⚠️ 無法連線網路抓取匯率，目前使用預設安全匯率";
+            }
+        }
+        // 網頁載入時立刻抓取匯率
+        fetchExchangeRates();
 
         function formatTripDates(dateStr, days) {
             if (!dateStr || !days) return "";
@@ -445,7 +468,6 @@
                 if (item.res === "已訂位" && item.resTime) resInfoHtml = `<div class="info-row" style="color:var(--tag-green-text); font-weight:bold;"><span class="icon">✅</span> 訂位: ${item.resTime}</div>`;
                 else if (item.resOpenDate && item.res !== "已訂位") resInfoHtml = `<div class="info-row"><span class="icon">⏰</span> 開放預訂: ${item.resOpenDate}</div>`;
 
-                // 備註顯示
                 let noteHtml = item.note ? `<div class="info-row" style="margin-top:8px; padding-top:8px; border-top:1px dashed #eee;"><span class="icon">📝</span> <span style="white-space: pre-wrap;">${item.note}</span></div>` : '';
 
                 listDiv.innerHTML += `
@@ -460,7 +482,6 @@
                         ${item.transport ? `<div class="transport-box"><span class="icon">🚇</span> ${item.transport}</div>` : ''}
                         ${noteHtml}
                         <div class="action-btns">
-                            <!-- 新增上下移動按鈕 -->
                             <button class="btn-move" onclick="moveSchedule(${index}, -1)" title="向上移">⬆️</button>
                             <button class="btn-move" onclick="moveSchedule(${index}, 1)" title="向下移">⬇️</button>
                             <div style="flex-grow:1;"></div>
@@ -471,17 +492,11 @@
             });
         };
 
-        // --- 新增：行程上下移動功能 ---
         window.moveSchedule = function(index, direction) {
             const dayList = window.sharedData.schedules[window.currentTripId][window.currentDay];
-            if (index + direction < 0 || index + direction >= dayList.length) return; // 到頂或到底不動作
-            
-            // 交換位置
-            const temp = dayList[index];
-            dayList[index] = dayList[index + direction];
-            dayList[index + direction] = temp;
-            
-            window.saveSharedData(); // 存檔即時同步更新
+            if (index + direction < 0 || index + direction >= dayList.length) return;
+            const temp = dayList[index]; dayList[index] = dayList[index + direction]; dayList[index + direction] = temp;
+            window.saveSharedData(); 
         };
 
         window.renderCategories = function() {
@@ -501,7 +516,7 @@
             const type = document.getElementById('f_type').value; const resStatus = document.getElementById('f_res').value;
             const isRest = type === '餐廳' || type.includes('餐'); const isAttr = type === '景點'; const isCust = !["住宿", "餐廳", "景點", "交通"].includes(type);
             
-            document.getElementById('field_meal').style.display = isRest ? 'block' : 'none'; // 餐廳顯示餐點選項
+            document.getElementById('field_meal').style.display = isRest ? 'block' : 'none';
             document.getElementById('field_res_time').style.display = (resStatus === '已訂位') ? 'block' : 'none';
             document.getElementById('field_res_open').style.display = ((isRest || isCust) && resStatus !== '已訂位') ? 'block' : 'none';
             document.getElementById('field_hours').style.display = (isRest || isAttr || isCust) ? 'block' : 'none';
@@ -512,12 +527,9 @@
         window.openScheduleModal = function(index = -1) {
             document.getElementById('scheduleModal').style.display = 'block'; document.getElementById('editIndex').value = index;
             
-            // 準備「移至哪天」下拉選單
             const moveSelect = document.getElementById('f_move_day'); moveSelect.innerHTML = '';
             const trip = window.sharedData.trips.find(t => t.id === window.currentTripId);
-            for (let i = 1; i <= trip.days; i++) {
-                moveSelect.innerHTML += `<option value="${i}">Day ${i}</option>`;
-            }
+            for (let i = 1; i <= trip.days; i++) { moveSelect.innerHTML += `<option value="${i}">Day ${i}</option>`; }
             
             if (index > -1) {
                 const item = window.sharedData.schedules[window.currentTripId][window.currentDay][index];
@@ -527,15 +539,11 @@
                 });
                 document.getElementById('f_type').value = item.type || '景點'; document.getElementById('f_res').value = item.res || '免預約';
                 
-                // 編輯模式顯示「跨日移動」
-                document.getElementById('field_move_day').style.display = 'block';
-                document.getElementById('f_move_day').value = window.currentDay;
+                document.getElementById('field_move_day').style.display = 'block'; document.getElementById('f_move_day').value = window.currentDay;
             } else {
                 document.getElementById('modalTitle').innerText = "新增行程";
                 ['f_title','f_time','f_hours','f_transport','f_cost','f_recs','f_res_time','f_res_open', 'f_meal', 'f_note'].forEach(id => document.getElementById(id).value = '');
                 document.getElementById('f_type').value = '景點'; document.getElementById('f_res').value = '免預約';
-                
-                // 新增模式隱藏「跨日移動」
                 document.getElementById('field_move_day').style.display = 'none';
             }
             window.toggleFormFields();
@@ -553,55 +561,68 @@
                 recs: document.getElementById('f_recs').value, meal: document.getElementById('f_meal').value, note: document.getElementById('f_note').value
             };
             const index = parseInt(document.getElementById('editIndex').value);
-            
             if (!window.sharedData.schedules[window.currentTripId]) window.sharedData.schedules[window.currentTripId] = {};
             
             if (index > -1) {
-                // 編輯模式
                 const targetDay = parseInt(document.getElementById('f_move_day').value);
                 if (targetDay !== window.currentDay) {
-                    // 跨日移動邏輯
                     window.sharedData.schedules[window.currentTripId][window.currentDay].splice(index, 1);
                     if (!window.sharedData.schedules[window.currentTripId][targetDay]) window.sharedData.schedules[window.currentTripId][targetDay] = [];
                     window.sharedData.schedules[window.currentTripId][targetDay].push(item);
-                } else {
-                    // 同一天直接覆蓋
-                    window.sharedData.schedules[window.currentTripId][window.currentDay][index] = item;
-                }
+                } else window.sharedData.schedules[window.currentTripId][window.currentDay][index] = item;
             } else {
-                // 新增模式
                 if (!window.sharedData.schedules[window.currentTripId][window.currentDay]) window.sharedData.schedules[window.currentTripId][window.currentDay] = [];
                 window.sharedData.schedules[window.currentTripId][window.currentDay].push(item);
             }
-            
             window.saveSharedData(); window.closeScheduleModal();
         };
 
         window.deleteSchedule = function(index) {
             if(confirm('確定刪除這個行程？ (大家都會同步被刪除喔)')) { 
-                window.sharedData.schedules[window.currentTripId][window.currentDay].splice(index, 1); 
-                window.saveSharedData(); 
+                window.sharedData.schedules[window.currentTripId][window.currentDay].splice(index, 1); window.saveSharedData(); 
             }
         };
 
+        // --- 記帳功能 (當日匯率鎖定版) ---
         window.addExpense = function() {
             const name = document.getElementById('expenseName').value; const amount = parseFloat(document.getElementById('expenseAmount').value);
             const currency = document.getElementById('expenseCurrency').value;
             if(!name || isNaN(amount)) return alert("請輸入花費資料");
             
-            window.localExpenses[window.currentTripId].push({ name, amount, currency, id: Date.now() });
+            // 核心邏輯：在記帳的瞬間，抓取系統變數裡的「今日最新匯率」綁定上去
+            const rateAtThisMoment = window.dynamicRates[currency];
+            
+            window.localExpenses[window.currentTripId].push({ 
+                name, amount, currency, id: Date.now(), 
+                rate: rateAtThisMoment // 永遠鎖定記帳這天的匯率
+            });
             window.saveLocalExpenses(); document.getElementById('expenseName').value = ''; document.getElementById('expenseAmount').value = ''; window.renderExpenses();
         };
+
         window.deleteExpense = function(id) {
             window.localExpenses[window.currentTripId] = window.localExpenses[window.currentTripId].filter(e => e.id !== id); 
             window.saveLocalExpenses(); window.renderExpenses();
         };
+
         window.renderExpenses = function() {
             const listDiv = document.getElementById('expenseList'); listDiv.innerHTML = ''; let totalTwd = 0;
             const tripExp = window.localExpenses[window.currentTripId] || [];
             tripExp.forEach(item => {
-                totalTwd += item.amount * rates[item.currency];
-                listDiv.innerHTML += `<div class="expense-item"><div><div style="font-weight:bold;">${item.name}</div><div style="font-size:0.8em; color:#888;">${item.currency} ${item.amount}</div></div><button class="btn-del" onclick="deleteExpense(${item.id})">刪除</button></div>`;
+                // 如果是舊資料沒有綁定 rate，就用現在的動態匯率補上
+                const itemRate = item.rate || window.dynamicRates[item.currency];
+                totalTwd += item.amount * itemRate;
+                
+                listDiv.innerHTML += `
+                    <div class="expense-item">
+                        <div>
+                            <div style="font-weight:bold;">${item.name}</div>
+                            <div style="font-size:0.85em; color:#666;">
+                                ${item.currency} ${item.amount} 
+                                <span style="font-size:0.8em; color:#aaa; margin-left:5px;">(當時匯率: ${itemRate.toFixed(4)})</span>
+                            </div>
+                        </div>
+                        <button class="btn-del" onclick="deleteExpense(${item.id})">刪除</button>
+                    </div>`;
             });
             document.getElementById('totalTwd').innerText = `TWD ${Math.round(totalTwd)}`;
         };
@@ -617,7 +638,6 @@
             window.renderCurrentView();
         };
 
-        // --- 雲端即時監聽 ---
         onValue(dbRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
