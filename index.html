@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="我的旅遊">
+    <title>旅遊行程管理 (雲端同步版)</title>
+    <style>
+        :root {
+            --primary-bg: #f5f0e6; --card-bg: #faf7f2; --text-dark: #333; --text-light: #666;
+            --accent-color: #8b6d5c; --border-color: #e0d8c8;
+            --tag-blue: #dceef7; --tag-blue-text: #3b7b9e;
+            --tag-red: #fbe3e4; --tag-red-text: #c0504d;
+            --tag-green: #e2f0d9; --tag-green-text: #548235;
+            --tag-custom: #e9e3f4; --tag-custom-text: #6b5294;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--primary-bg); color: var(--text-dark);
+            margin: 0; padding: 0; padding-bottom: 80px; overscroll-behavior-y: none;
+        }
+        .header {
+            padding: 15px; background: #fff; text-align: center; font-weight: bold; font-size: 1.1em;
+            border-bottom: 1px solid var(--border-color); position: sticky; top: 0; z-index: 100;
+        }
+        .sync-status { font-size: 0.7em; color: var(--tag-green-text); margin-top: 4px; font-weight: normal; }
+        
+        .trip-card {
+            background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer; border: 1px solid var(--border-color);
+        }
+        .trip-card h2 { margin: 0 0 10px 0; color: var(--accent-color); }
+        .trip-card p { margin: 5px 0; color: var(--text-light); font-size: 0.9em; }
+        .btn-main { width: 100%; padding: 12px; background: var(--text-dark); color: white; border: none; border-radius: 8px; font-weight: bold; margin-bottom: 20px; font-size: 1em; }
+
+        .nav-tabs { display: flex; background: #fff; padding: 10px; overflow-x: auto; border-bottom: 1px solid var(--border-color); }
+        .nav-tabs button { background: none; border: 1px solid var(--border-color); padding: 8px 15px; margin-right: 5px; border-radius: 5px; white-space: nowrap; color: var(--text-light); }
+        .nav-tabs button.active { background-color: var(--text-dark); color: #fff; border-color: var(--text-dark); }
+        .content { padding: 15px; }
+        
+        .schedule-item { background: var(--card-bg); border-left: 4px solid var(--accent-color); padding: 15px; margin-bottom: 20px; border-radius: 0 8px 8px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .s-time { font-weight: bold; color: var(--accent-color); margin-bottom: 5px; }
+        .s-title { font-size: 1.2em; font-weight: bold; margin-bottom: 8px; }
+        .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+        .tag { padding: 3px 8px; border-radius: 4px; font-size: 0.75em; font-weight: bold; }
+        .tag.type { background: var(--tag-blue); color: var(--tag-blue-text); }
+        .tag.type-custom { background: var(--tag-custom); color: var(--tag-custom-text); }
+        .tag.res-no { background: var(--tag-red); color: var(--tag-red-text); }
+        .tag.res-yes { background: var(--tag-green); color: var(--tag-green-text); }
+        .tag.res-na { display: none; }
+        .info-row { display: flex; align-items: flex-start; margin-bottom: 6px; font-size: 0.9em; color: var(--text-dark); }
+        .icon { margin-right: 8px; font-size: 1.1em; }
+        .transport-box { background: #fff; border-radius: 6px; padding: 10px; margin-top: 10px; border: 1px solid var(--border-color); font-size: 0.85em; }
+        .recommends { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+        .rec-item { border: 1px solid var(--accent-color); color: var(--accent-color); padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold; }
+        .action-btns { margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end; }
+        .btn-edit, .btn-del { padding: 5px 12px; border-radius: 4px; font-size: 0.8em; border: none; cursor: pointer; }
+        .btn-edit { background: #ddd; color: #333; }
+        .btn-del { background: #ffebe9; color: #da3633; border: 1px solid #da3633; }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 200; overflow-y: auto; }
+        .modal-content { background: #fff; margin: 20px auto; padding: 20px; width: 90%; border-radius: 12px; box-sizing: border-box; padding-bottom: 40px; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 0.85em; color: var(--text-light); margin-bottom: 4px; }
+        .form-group input, .form-group select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
+        .modal-btns button { flex: 1; padding: 12px; border: none; border-radius: 6px; font-weight: bold; }
+        .btn-save { background: var(--text-dark); color: #fff; }
+        .btn-cancel { background: #eee; color: #333; }
+
+        .expense-summary { background: #fff; padding: 20px; text-align: center; border-radius: 8px; margin-bottom: 20px; position:relative; }
+        .private-tag { position:absolute; top:10px; right:10px; background:#e9e3f4; color:#6b5294; font-size:0.7em; padding:3px 6px; border-radius:4px; font-weight:bold; }
+        .expense-total { font-size: 1.5em; font-weight: bold; color: var(--accent-color); }
+        .expense-item { display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 15px; border-bottom: 1px solid #eee; margin-bottom: 5px; border-radius: 6px; }
+        .add-form { background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .add-form input, .add-form select { border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; padding: 8px; }
+
+        .page { display: none; }
+        .page.active { display: block; }
+        
+        .bottom-nav { position: fixed; bottom: 0; width: 100%; background: #fff; display: flex; justify-content: space-around; padding: 10px 0; padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid var(--border-color); box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 100; }
+        .nav-item { text-align: center; font-size: 0.8em; color: var(--text-light); cursor: pointer; flex: 1; }
+        .nav-item.active { color: var(--accent-color); font-weight: bold; }
+        .nav-icon { font-size: 1.5em; margin-bottom: 3px; }
+        .btn-add-cat { background: var(--tag-blue); color: var(--tag-blue-text); border: none; border-radius: 4px; padding: 0 10px; font-size: 0.85em; font-weight: bold; white-space: nowrap; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div id="headerTitle">我的旅遊清單</div>
+        <div class="sync-status" id="syncStatus">☁️ 連線中...</div>
+    </div>
+
+    <div id="homePage" class="page active">
+        <div class="content">
+            <button class="btn-main" onclick="openTripModal()">+ 新增旅遊行程 (大家同步)</button>
+            <div id="tripListContainer"></div>
+        </div>
+    </div>
+
+    <div id="itineraryPage" class="page">
+        <div class="nav-tabs" id="dayTabs"></div>
+        <div class="content">
+            <button class="btn-main" onclick="openScheduleModal()">+ 新增當日行程 (大家同步)</button>
+            <div id="scheduleList"></div>
+        </div>
+    </div>
+
+    <div id="expensePage" class="page">
+        <div class="content">
+            <div class="expense-summary">
+                <span class="private-tag">🔒 僅自己可見</span>
+                <div>我的專屬總花費 (台幣)</div>
+                <div class="expense-total" id="totalTwd">TWD 0</div>
+                <div style="font-size: 0.8em; color: #888;">設定: 1 JPY = 0.21 / 1 KRW = 0.024</div>
+            </div>
+            <div class="add-form">
+                <input type="text" id="expenseName" placeholder="花費項目 (例如: 晚餐)" style="width: 100%; margin-bottom: 10px;">
+                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                    <input type="number" id="expenseAmount" placeholder="金額" style="flex:2;">
+                    <select id="expenseCurrency" style="flex:1; background:#fff;">
+                        <option value="JPY">日幣 JPY</option>
+                        <option value="KRW">韓元 KRW</option>
+                        <option value="TWD">台幣 TWD</option>
+                    </select>
+                </div>
+                <button class="btn-main" style="margin-bottom:0;" onclick="addExpense()">記一筆私人花費</button>
+            </div>
+            <div id="expenseList"></div>
+        </div>
+    </div>
+
+    <!-- Modals (保持與上一版相同) -->
+    <div id="tripModal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-top:0;">新增旅遊</h3>
+            <div class="form-group"><label>旅遊名稱</label><input type="text" id="t_name" placeholder="例: 首爾追星行"></div>
+            <div class="form-group"><label>出發日期</label><input type="date" id="t_date"></div>
+            <div class="form-group"><label>總天數</label><input type="number" id="t_days" placeholder="例: 5"></div>
+            <div class="modal-btns"><button class="btn-cancel" onclick="closeTripModal()">取消</button><button class="btn-save" onclick="saveTrip()">建立行程</button></div>
+        </div>
+    </div>
+
+    <div id="scheduleModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle" style="margin-top:0;">新增行程</h3>
+            <input type="hidden" id="editIndex" value="-1">
+            <div class="form-group"><label>行程名稱</label><input type="text" id="f_title" placeholder="例: 敘敘苑 / 景福宮"></div>
+            <div style="display:flex; gap:10px; margin-bottom: 12px;">
+                <div style="flex:1;"><label style="font-size: 0.85em; color: var(--text-light); display:block; margin-bottom:4px;">分類</label><div style="display:flex; gap:5px;"><select id="f_type" style="flex:1;" onchange="toggleFormFields()"></select><button class="btn-add-cat" onclick="addNewCategory()">+新增</button></div></div>
+                <div style="flex:1;"><label style="font-size: 0.85em; color: var(--text-light); display:block; margin-bottom:4px;">預約狀態</label><select id="f_res" onchange="toggleFormFields()"><option value="免預約">免預約</option><option value="未預訂">未預訂</option><option value="已訂位">已訂位</option></select></div>
+            </div>
+            <div id="field_res_time" class="form-group" style="display:none;"><label style="color:#548235; font-weight:bold;">✅ 訂位時間</label><input type="time" id="f_res_time"></div>
+            <div id="field_res_open" class="form-group" style="display:none;"><label>預定開放日</label><input type="date" id="f_res_open"></div>
+            <div class="form-group"><label>預計時間</label><input type="text" id="f_time" placeholder="例: 12:00 - 13:30"></div>
+            <div id="field_hours" class="form-group" style="display:none;"><label>營業時間</label><input type="text" id="f_hours" placeholder="例: 10:00 - 22:00"></div>
+            <div id="field_recs" class="form-group" style="display:none;"><label>必點推薦 (逗號分隔)</label><input type="text" id="f_recs"></div>
+            <div id="field_transport" class="form-group" style="display:none;"><label>交通方式</label><input type="text" id="f_transport"></div>
+            <div class="form-group"><label>車資/花費</label><input type="text" id="f_cost"></div>
+            <div class="modal-btns"><button class="btn-cancel" onclick="closeScheduleModal()">取消</button><button class="btn-save" onclick="saveSchedule()">儲存</button></div>
+        </div>
+    </div>
+
+    <!-- 底部導覽列 -->
+    <div class="bottom-nav">
+        <div class="nav-item active" id="navHome" onclick="goToHome()"><div class="nav-icon">🏠</div><div>首頁</div></div>
+        <div class="nav-item" id="navSchedule" onclick="switchPage('itineraryPage', this)" style="display:none;"><div class="nav-icon">📅</div><div>行程清單</div></div>
+        <div class="nav-item" id="navExpense" onclick="switchPage('expensePage', this)" style="display:none;"><div class="nav-icon">💰</div><div>我的記帳</div></div>
+    </div>
+
+    <!-- 載入 Firebase 模組 -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+
+        // 貼上你的專屬靈魂金鑰
+        const firebaseConfig = {
+            apiKey: "AIzaSyCL5Kwizm5zbBTS6LBUVGCXQeNCZcg_tSI",
+            authDomain: "travel-app-537e4.firebaseapp.com",
+            projectId: "travel-app-537e4",
+            storageBucket: "travel-app-537e4.firebasestorage.app",
+            messagingSenderId: "3544417003",
+            appId: "1:3544417003:web:766b1dc2ba233d5d9d74ae"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const dbRef = ref(db, 'sharedTravelData');
+
+        // --- 資料狀態初始化 ---
+        window.sharedData = { trips: [], schedules: {}, categories: [] };
+        window.localExpenses = JSON.parse(localStorage.getItem('myPrivateExpenses')) || {};
+        window.currentTripId = null;
+        window.currentDay = 1;
+        const rates = { JPY: 0.21, KRW: 0.024, TWD: 1 };
+
+        // --- 1. 雲端即時監聽 (核心魔法) ---
+        onValue(dbRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                window.sharedData = data;
+                // 防呆機制：如果雲端清空了，補回空陣列
+                if (!window.sharedData.trips) window.sharedData.trips = [];
+                if (!window.sharedData.schedules) window.sharedData.schedules = {};
+                if (!window.sharedData.categories) window.sharedData.categories = ["住宿", "餐廳", "景點", "交通"];
+            } else {
+                // 如果雲端完全沒資料 (第一次進入)，我們塞入你的福岡預設資料
+                window.sharedData = {
+                    trips: [ { id: 'trip_1', name: '福岡 TXT 演唱會之旅', date: '2024-12-16', days: 6 } ],
+                    schedules: {
+                        'trip_1': {
+                            1: [{ title: "桃園機場", time: "16:25 起飛", type: "交通", res: "已訂位", resTime: "16:25", transport: "中華航空 CI116" }, { title: "福岡機場", time: "19:35 抵達", type: "交通", res: "免預約" }],
+                            2: [{ title: "Bread, Espresso & Hakata", time: "08:00", type: "餐廳", res: "未預訂", recs: "鐵板法式吐司" }]
+                        }
+                    },
+                    categories: ["住宿", "餐廳", "景點", "交通"]
+                };
+                set(dbRef, window.sharedData);
+            }
+            
+            document.getElementById('syncStatus').innerText = "☁️ 已同步最新資料";
+            setTimeout(() => document.getElementById('syncStatus').innerText = "", 3000);
+            
+            // 只要雲端一有變動，畫面立刻自動重繪！
+            window.renderCurrentView();
+        });
+
+        // 儲存雲端與地端資料的功能
+        window.saveSharedData = function() { set(dbRef, window.sharedData); };
+        window.saveLocalExpenses = function() { localStorage.setItem('myPrivateExpenses', JSON.stringify(window.localExpenses)); };
+
+        // --- 畫面更新邏輯 ---
+        window.renderCurrentView = function() {
+            if (document.getElementById('homePage').classList.contains('active')) window.renderHomePage();
+            else if (document.getElementById('itineraryPage').classList.contains('active')) {
+                window.renderTabs(); window.renderSchedules();
+            } else if (document.getElementById('expensePage').classList.contains('active')) window.renderExpenses();
+        };
+
+        window.renderHomePage = function() {
+            const container = document.getElementById('tripListContainer'); container.innerHTML = '';
+            window.sharedData.trips.forEach(trip => {
+                container.innerHTML += `
+                    <div class="trip-card" onclick="enterTrip('${trip.id}')">
+                        <h2>✈️ ${trip.name}</h2>
+                        <p>🗓️ 出發日期: ${trip.date}</p>
+                        <p>⏱️ 旅遊天數: ${trip.days} 天</p>
+                    </div>`;
+            });
+        };
+
+        window.enterTrip = function(tripId) {
+            window.currentTripId = tripId; window.currentDay = 1;
+            document.getElementById('navSchedule').style.display = 'block';
+            document.getElementById('navExpense').style.display = 'block';
+            if (!window.localExpenses[tripId]) { window.localExpenses[tripId] = []; window.saveLocalExpenses(); }
+            window.renderCategories();
+            window.switchPage('itineraryPage', document.getElementById('navSchedule'));
+        };
+
+        window.goToHome = function() {
+            window.currentTripId = null;
+            document.getElementById('navSchedule').style.display = 'none';
+            document.getElementById('navExpense').style.display = 'none';
+            window.switchPage('homePage', document.getElementById('navHome'));
+        };
+
+        window.renderTabs = function() {
+            const trip = window.sharedData.trips.find(t => t.id === window.currentTripId);
+            if(!trip) return;
+            const tabsDiv = document.getElementById('dayTabs'); tabsDiv.innerHTML = '';
+            for (let i = 1; i <= trip.days; i++) {
+                const btn = document.createElement('button'); btn.innerText = `Day ${i}`;
+                if (i === window.currentDay) btn.className = 'active';
+                btn.onclick = () => { window.currentDay = i; window.renderTabs(); window.renderSchedules(); };
+                tabsDiv.appendChild(btn);
+            }
+        };
+
+        window.renderSchedules = function() {
+            const listDiv = document.getElementById('scheduleList'); listDiv.innerHTML = '';
+            const dayList = (window.sharedData.schedules[window.currentTripId] || {})[window.currentDay] || [];
+            
+            dayList.forEach((item, index) => {
+                let recHtml = item.recs ? `<div class="recommends">必點: ` + item.recs.split(',').map(r => `<span class="rec-item">${r.trim()}</span>`).join('') + `</div>` : '';
+                let resClass = item.res === "已訂位" ? "res-yes" : (item.res === "未預訂" ? "res-no" : "res-na");
+                let typeClass = ["住宿", "餐廳", "景點", "交通"].includes(item.type) ? "type" : "type-custom";
+                
+                let resInfoHtml = '';
+                if (item.res === "已訂位" && item.resTime) resInfoHtml = `<div class="info-row" style="color:var(--tag-green-text); font-weight:bold;"><span class="icon">✅</span> 訂位: ${item.resTime}</div>`;
+                else if (item.resOpenDate && item.res !== "已訂位") resInfoHtml = `<div class="info-row"><span class="icon">⏰</span> 開放預訂: ${item.resOpenDate}</div>`;
+
+                listDiv.innerHTML += `
+                    <div class="schedule-item">
+                        ${item.time ? `<div class="s-time">${item.time}</div>` : ''}
+                        <div class="s-title">${item.title}</div>
+                        <div class="tags"><span class="tag ${typeClass}">${item.type || '景點'}</span>${resClass !== 'res-na' ? `<span class="tag ${resClass}">${item.res}</span>` : ''}</div>
+                        ${resInfoHtml}
+                        ${item.hours ? `<div class="info-row"><span class="icon">🕒</span> 營業: ${item.hours}</div>` : ''}
+                        ${item.cost ? `<div class="info-row"><span class="icon">💰</span> 花費: ${item.cost}</div>` : ''}
+                        ${recHtml}
+                        ${item.transport ? `<div class="transport-box"><span class="icon">🚇</span> ${item.transport}</div>` : ''}
+                        <div class="action-btns">
+                            <button class="btn-edit" onclick="openScheduleModal(${index})">編輯</button>
+                            <button class="btn-del" onclick="deleteSchedule(${index})">刪除</button>
+                        </div>
+                    </div>`;
+            });
+        };
+
+        // --- 彈跳視窗與表單邏輯 ---
+        window.openTripModal = function() { document.getElementById('tripModal').style.display = 'block'; };
+        window.closeTripModal = function() { document.getElementById('tripModal').style.display = 'none'; };
+        window.saveTrip = function() {
+            const name = document.getElementById('t_name').value;
+            const date = document.getElementById('t_date').value;
+            const days = parseInt(document.getElementById('t_days').value);
+            if(!name || !date || isNaN(days)) return alert('請填寫完整資訊！');
+            
+            const newTripId = 'trip_' + Date.now();
+            window.sharedData.trips.push({ id: newTripId, name, date, days });
+            window.sharedData.schedules[newTripId] = {};
+            window.localExpenses[newTripId] = [];
+            
+            window.saveSharedData(); window.saveLocalExpenses(); window.closeTripModal();
+        };
+
+        window.renderCategories = function() {
+            const select = document.getElementById('f_type'); select.innerHTML = '';
+            window.sharedData.categories.forEach(cat => { select.innerHTML += `<option value="${cat}">${cat}</option>`; });
+        };
+        
+        window.addNewCategory = function() {
+            const newCat = prompt("自訂分類名稱：");
+            if (newCat && newCat.trim() !== '') {
+                window.sharedData.categories.push(newCat.trim()); window.saveSharedData();
+                document.getElementById('f_type').value = newCat.trim(); window.toggleFormFields();
+            }
+        };
+
+        window.toggleFormFields = function() {
+            const type = document.getElementById('f_type').value; const resStatus = document.getElementById('f_res').value;
+            const isRest = type === '餐廳' || type.includes('餐'); const isAttr = type === '景點'; const isCust = !["住宿", "餐廳", "景點", "交通"].includes(type);
+            document.getElementById('field_res_time').style.display = (resStatus === '已訂位') ? 'block' : 'none';
+            document.getElementById('field_res_open').style.display = ((isRest || isCust) && resStatus !== '已訂位') ? 'block' : 'none';
+            document.getElementById('field_hours').style.display = (isRest || isAttr || isCust) ? 'block' : 'none';
+            document.getElementById('field_recs').style.display = (isRest || isCust) ? 'block' : 'none';
+            document.getElementById('field_transport').style.display = (isRest || isAttr || type === '住宿' || isCust) ? 'block' : 'none';
+        };
+
+        window.openScheduleModal = function(index = -1) {
+            document.getElementById('scheduleModal').style.display = 'block'; document.getElementById('editIndex').value = index;
+            if (index > -1) {
+                const item = window.sharedData.schedules[window.currentTripId][window.currentDay][index];
+                document.getElementById('modalTitle').innerText = "編輯行程";
+                ['f_title','f_time','f_hours','f_transport','f_cost','f_recs','f_res_time','f_res_open'].forEach(id => document.getElementById(id).value = item[id.replace('f_','').replace('res_open','resOpenDate').replace('res_time','resTime')] || '');
+                document.getElementById('f_type').value = item.type || '景點'; document.getElementById('f_res').value = item.res || '免預約';
+            } else {
+                document.getElementById('modalTitle').innerText = "新增行程";
+                ['f_title','f_time','f_hours','f_transport','f_cost','f_recs','f_res_time','f_res_open'].forEach(id => document.getElementById(id).value = '');
+                document.getElementById('f_type').value = '景點'; document.getElementById('f_res').value = '免預約';
+            }
+            window.toggleFormFields();
+        };
+        
+        window.closeScheduleModal = function() { document.getElementById('scheduleModal').style.display = 'none'; };
+        
+        window.saveSchedule = function() {
+            const title = document.getElementById('f_title').value; if (!title) return alert('請輸入行程名稱');
+            const item = {
+                title, type: document.getElementById('f_type').value, res: document.getElementById('f_res').value,
+                resTime: document.getElementById('f_res_time').value, time: document.getElementById('f_time').value, 
+                resOpenDate: document.getElementById('f_res_open').value, hours: document.getElementById('f_hours').value, 
+                transport: document.getElementById('f_transport').value, cost: document.getElementById('f_cost').value, recs: document.getElementById('f_recs').value
+            };
+            const index = parseInt(document.getElementById('editIndex').value);
+            if (!window.sharedData.schedules[window.currentTripId]) window.sharedData.schedules[window.currentTripId] = {};
+            if (!window.sharedData.schedules[window.currentTripId][window.currentDay]) window.sharedData.schedules[window.currentTripId][window.currentDay] = [];
+            
+            if (index > -1) window.sharedData.schedules[window.currentTripId][window.currentDay][index] = item;
+            else window.sharedData.schedules[window.currentTripId][window.currentDay].push(item);
+            
+            window.saveSharedData(); window.closeScheduleModal();
+        };
+
+        window.deleteSchedule = function(index) {
+            if(confirm('確定刪除這個行程？ (大家都會同步被刪除喔)')) { 
+                window.sharedData.schedules[window.currentTripId][window.currentDay].splice(index, 1); 
+                window.saveSharedData(); 
+            }
+        };
+
+        // --- 私人花費記帳區塊 (只有地端) ---
+        window.addExpense = function() {
+            const name = document.getElementById('expenseName').value; const amount = parseFloat(document.getElementById('expenseAmount').value);
+            const currency = document.getElementById('expenseCurrency').value;
+            if(!name || isNaN(amount)) return alert("請輸入花費資料");
+            
+            window.localExpenses[window.currentTripId].push({ name, amount, currency, id: Date.now() });
+            window.saveLocalExpenses(); 
+            document.getElementById('expenseName').value = ''; document.getElementById('expenseAmount').value = ''; 
+            window.renderExpenses();
+        };
+
+        window.deleteExpense = function(id) {
+            window.localExpenses[window.currentTripId] = window.localExpenses[window.currentTripId].filter(e => e.id !== id); 
+            window.saveLocalExpenses(); window.renderExpenses();
+        };
+
+        window.renderExpenses = function() {
+            const listDiv = document.getElementById('expenseList'); listDiv.innerHTML = ''; let totalTwd = 0;
+            const tripExp = window.localExpenses[window.currentTripId] || [];
+            tripExp.forEach(item => {
+                totalTwd += item.amount * rates[item.currency];
+                listDiv.innerHTML += `<div class="expense-item"><div><div style="font-weight:bold;">${item.name}</div><div style="font-size:0.8em; color:#888;">${item.currency} ${item.amount}</div></div><button class="btn-del" onclick="deleteExpense(${item.id})">刪除</button></div>`;
+            });
+            document.getElementById('totalTwd').innerText = `TWD ${Math.round(totalTwd)}`;
+        };
+
+        window.switchPage = function(pageId, navItem) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); document.getElementById(pageId).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active')); navItem.classList.add('active');
+            
+            if(pageId === 'homePage') {
+                document.getElementById('headerTitle').innerText = '我的旅遊清單';
+            } else {
+                const tripName = window.sharedData.trips.find(t => t.id === window.currentTripId)?.name || '';
+                document.getElementById('headerTitle').innerText = pageId === 'itineraryPage' ? tripName : `${tripName} - 記帳`;
+            }
+            window.renderCurrentView();
+        };
+    </script>
+</body>
+</html>
