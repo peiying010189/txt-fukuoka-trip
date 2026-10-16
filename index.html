@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="我的旅遊">
     <title>旅遊行程管理 (雲端同步版)</title>
-    <!-- 設定手機桌面的 APP 圖示 (如果你有上傳 travel-bag.png) -->
+    <!-- 設定手機桌面的 APP 圖示 -->
     <link rel="apple-touch-icon" href="travel-bag.png">
     <link rel="icon" href="travel-bag.png">
     <style>
@@ -143,7 +143,6 @@
                 <span class="private-tag">🔒 僅自己可見</span>
                 <div>我的專屬總花費 (台幣)</div>
                 <div class="expense-total" id="totalTwd">TWD 0</div>
-                <!-- 匯率狀態顯示區 -->
                 <div id="rateInfo" style="font-size: 0.8em; color: #888; margin-top: 8px;">🔄 正在抓取今日最新匯率...</div>
             </div>
             <div class="add-form">
@@ -162,13 +161,20 @@
         </div>
     </div>
 
-    <!-- 首頁旅遊卡片設定 Modal -->
+    <!-- 首頁旅遊卡片設定 Modal (新增密碼欄位) -->
     <div id="tripModal" class="modal">
         <div class="modal-content">
             <h3 id="tripModalTitle" style="margin-top:0;">新增/編輯旅遊</h3>
             <input type="hidden" id="t_edit_id" value="">
             
             <div class="form-group"><label>旅遊名稱</label><input type="text" id="t_name" placeholder="例: 福岡 TXT 演唱會之旅"></div>
+            
+            <!-- 密碼鎖設定 -->
+            <div class="form-group">
+                <label style="color:var(--accent-color);">🔒 專屬密碼 (選填，防偷看)</label>
+                <input type="text" id="t_password" placeholder="留白表示公開，有填代表上鎖">
+            </div>
+
             <div class="flex-row">
                 <div class="form-group" style="flex:1;"><label>出發日期</label><input type="date" id="t_date"></div>
                 <div class="form-group" style="flex:1;"><label>總天數</label><input type="number" id="t_days" placeholder="例: 6"></div>
@@ -273,36 +279,33 @@
 
         window.sharedData = { trips: [], schedules: {}, categories: [] };
         window.localExpenses = JSON.parse(localStorage.getItem('myPrivateExpenses')) || {};
+        // 紀錄手機已經解鎖過的密碼
+        window.unlockedTrips = JSON.parse(localStorage.getItem('myUnlockedTrips')) || {};
+        
         window.currentTripId = null;
         window.currentDay = 1;
-        
-        // 預設匯率 (防呆機制，如果沒網路時使用)
         window.dynamicRates = { JPY: 0.21, KRW: 0.024, TWD: 1 };
 
         window.saveSharedData = function() { set(dbRef, window.sharedData); };
         window.saveLocalExpenses = function() { localStorage.setItem('myPrivateExpenses', JSON.stringify(window.localExpenses)); };
+        window.saveUnlockedTrips = function() { localStorage.setItem('myUnlockedTrips', JSON.stringify(window.unlockedTrips)); };
 
-        // --- 核心：自動抓取國際即時匯率 ---
         async function fetchExchangeRates() {
             try {
-                // 使用免費的 Open Exchange Rates API (以 TWD 為基準抓取)
                 const res = await fetch('https://open.er-api.com/v6/latest/TWD');
                 const data = await res.json();
                 if(data && data.rates) {
-                    // API 回傳的是 1 TWD = X 日幣，我們要反算成 1 日幣 = X TWD
                     window.dynamicRates.JPY = 1 / data.rates.JPY;
                     window.dynamicRates.KRW = 1 / data.rates.KRW;
-                    
                     document.getElementById('rateInfo').innerHTML = `
                         今日即時匯率: 1 JPY = ${window.dynamicRates.JPY.toFixed(4)} TWD<br>
                         1 KRW = ${window.dynamicRates.KRW.toFixed(4)} TWD`;
                 }
             } catch(e) {
-                console.log("匯率抓取失敗，使用預設值", e);
+                console.log("匯率抓取失敗", e);
                 document.getElementById('rateInfo').innerText = "⚠️ 無法連線網路抓取匯率，目前使用預設安全匯率";
             }
         }
-        // 網頁載入時立刻抓取匯率
         fetchExchangeRates();
 
         function formatTripDates(dateStr, days) {
@@ -318,7 +321,6 @@
             const targetDate = new Date(dateString); targetDate.setHours(0,0,0,0);
             const today = new Date(); today.setHours(0,0,0,0);
             const diffDays = Math.ceil((targetDate - today) / (1000 * 60 * 60 * 24)); 
-            
             if (diffDays > 0) return `⏳ 倒數 ${diffDays} 天出發！`;
             if (diffDays === 0) return `🎉 就是今天，準備出發！`;
             return `✅ 旅程已開始或結束`;
@@ -338,6 +340,7 @@
             sortedTrips.forEach(trip => {
                 const countdownText = calculateTripCountdown(trip.date);
                 const dateRangeText = formatTripDates(trip.date, trip.days);
+                const lockIcon = trip.password ? ' 🔒' : ''; // 判斷是否顯示鎖頭
                 
                 let flightHtml = '';
                 if (trip.flights) {
@@ -353,7 +356,7 @@
                 container.innerHTML += `
                     <div class="trip-card" onclick="enterTrip('${trip.id}')">
                         <button class="btn-edit-trip" onclick="event.stopPropagation(); openTripModal('${trip.id}')">編輯</button>
-                        <h2>✈️ ${trip.name}</h2>
+                        <h2>✈️ ${trip.name}${lockIcon}</h2>
                         <p class="trip-countdown">${countdownText}</p>
                         <p>🗓️ 旅遊日期: ${dateRangeText}</p>
                         <p>⏱️ 旅遊天數: ${trip.days} 天</p>
@@ -364,13 +367,14 @@
 
         window.openTripModal = function(tripId = null) { 
             document.getElementById('tripModal').style.display = 'block'; 
-            const fields = ['t_name','t_date','t_days','t_out_air','t_out_no','t_out_from','t_out_to','t_out_time_s','t_out_time_e','t_in_air','t_in_no','t_in_from','t_in_to','t_in_time_s','t_in_time_e'];
+            const fields = ['t_name','t_password','t_date','t_days','t_out_air','t_out_no','t_out_from','t_out_to','t_out_time_s','t_out_time_e','t_in_air','t_in_no','t_in_from','t_in_to','t_in_time_s','t_in_time_e'];
             
             if (tripId) {
                 const trip = window.sharedData.trips.find(t => t.id === tripId);
                 document.getElementById('tripModalTitle').innerText = "編輯旅遊設定";
                 document.getElementById('t_edit_id').value = trip.id;
                 document.getElementById('t_name').value = trip.name;
+                document.getElementById('t_password').value = trip.password || ''; // 讀取密碼
                 document.getElementById('t_date').value = trip.date;
                 document.getElementById('t_days').value = trip.days;
                 
@@ -397,6 +401,7 @@
         window.saveTrip = function() {
             const editId = document.getElementById('t_edit_id').value;
             const name = document.getElementById('t_name').value;
+            const password = document.getElementById('t_password').value.trim(); // 儲存密碼
             const date = document.getElementById('t_date').value;
             const days = parseInt(document.getElementById('t_days').value);
             
@@ -409,10 +414,10 @@
             
             if (editId) {
                 const tripIndex = window.sharedData.trips.findIndex(t => t.id === editId);
-                window.sharedData.trips[tripIndex] = { id: editId, name, date, days, flights };
+                window.sharedData.trips[tripIndex] = { id: editId, name, password, date, days, flights };
             } else {
                 const newTripId = 'trip_' + Date.now();
-                window.sharedData.trips.push({ id: newTripId, name, date, days, flights });
+                window.sharedData.trips.push({ id: newTripId, name, password, date, days, flights });
                 window.sharedData.schedules[newTripId] = {};
                 window.localExpenses[newTripId] = [];
             }
@@ -428,7 +433,23 @@
             }
         };
 
+        // --- 進入行程時的密碼檢查邏輯 ---
         window.enterTrip = function(tripId) {
+            const trip = window.sharedData.trips.find(t => t.id === tripId);
+            
+            // 如果行程有設密碼，且手機還沒記住這把鑰匙
+            if (trip.password && window.unlockedTrips[tripId] !== trip.password) {
+                const inputPwd = prompt(`這趟行程已上鎖 🔒\n請輸入「${trip.name}」的專屬密碼：`);
+                if (inputPwd === null) return; // 點擊取消
+                if (inputPwd !== trip.password) {
+                    alert("密碼錯誤！無法進入查看。");
+                    return;
+                }
+                // 密碼正確，記錄到手機裡，下次免輸入
+                window.unlockedTrips[tripId] = trip.password;
+                window.saveUnlockedTrips();
+            }
+
             window.currentTripId = tripId; window.currentDay = 1;
             document.getElementById('navSchedule').style.display = 'block';
             document.getElementById('navExpense').style.display = 'block';
@@ -583,19 +604,13 @@
             }
         };
 
-        // --- 記帳功能 (當日匯率鎖定版) ---
         window.addExpense = function() {
             const name = document.getElementById('expenseName').value; const amount = parseFloat(document.getElementById('expenseAmount').value);
             const currency = document.getElementById('expenseCurrency').value;
             if(!name || isNaN(amount)) return alert("請輸入花費資料");
             
-            // 核心邏輯：在記帳的瞬間，抓取系統變數裡的「今日最新匯率」綁定上去
             const rateAtThisMoment = window.dynamicRates[currency];
-            
-            window.localExpenses[window.currentTripId].push({ 
-                name, amount, currency, id: Date.now(), 
-                rate: rateAtThisMoment // 永遠鎖定記帳這天的匯率
-            });
+            window.localExpenses[window.currentTripId].push({ name, amount, currency, id: Date.now(), rate: rateAtThisMoment });
             window.saveLocalExpenses(); document.getElementById('expenseName').value = ''; document.getElementById('expenseAmount').value = ''; window.renderExpenses();
         };
 
@@ -608,10 +623,8 @@
             const listDiv = document.getElementById('expenseList'); listDiv.innerHTML = ''; let totalTwd = 0;
             const tripExp = window.localExpenses[window.currentTripId] || [];
             tripExp.forEach(item => {
-                // 如果是舊資料沒有綁定 rate，就用現在的動態匯率補上
                 const itemRate = item.rate || window.dynamicRates[item.currency];
                 totalTwd += item.amount * itemRate;
-                
                 listDiv.innerHTML += `
                     <div class="expense-item">
                         <div>
@@ -647,7 +660,7 @@
                 if (!window.sharedData.categories) window.sharedData.categories = ["住宿", "餐廳", "景點", "交通"];
             } else {
                 window.sharedData = {
-                    trips: [ { id: 'trip_1', name: '福岡 TXT 演唱會之旅', date: '2026-12-16', days: 6, flights: { outbound: { air: '中華', no: 'CI116', from: 'TPE', to: 'FUK', time_s: '16:25', time_e: '19:35' }, inbound: { air: '中華', no: 'CI111', from: 'FUK', to: 'TPE', time_s: '11:00', time_e: '12:35' } } } ],
+                    trips: [ { id: 'trip_1', name: '福岡 TXT 演唱會之旅', password: '', date: '2026-12-16', days: 6, flights: { outbound: { air: '中華', no: 'CI116', from: 'TPE', to: 'FUK', time_s: '16:25', time_e: '19:35' }, inbound: { air: '中華', no: 'CI111', from: 'FUK', to: 'TPE', time_s: '11:00', time_e: '12:35' } } } ],
                     schedules: {
                         'trip_1': {
                             1: [{ title: "桃園機場", time: "16:25 起飛", type: "交通", res: "已訂位", resTime: "16:25", transport: "中華航空 CI116" }, { title: "福岡機場", time: "19:35 抵達", type: "交通", res: "免預約" }],
