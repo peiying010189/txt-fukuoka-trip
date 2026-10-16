@@ -34,6 +34,11 @@
         .trip-card h2 { margin: 0 0 10px 0; color: var(--accent-color); font-size: 1.3em; width: 80%; }
         .trip-card p { margin: 5px 0; color: var(--text-light); font-size: 0.9em; }
         .trip-countdown { color: #da3633 !important; font-weight: bold; font-size: 1em !important; margin-bottom: 8px !important; }
+        
+        .flight-info-box { background: #f0f4f8; padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 0.85em; color: #444; }
+        .flight-info-box .f-row { margin-bottom: 4px; }
+        .flight-info-box .f-row:last-child { margin-bottom: 0; }
+
         .btn-edit-trip { 
             position: absolute; top: 15px; right: 15px; background: #ddd; color: #333; 
             border: none; border-radius: 6px; padding: 5px 12px; font-size: 0.8em; font-weight: bold; cursor: pointer;
@@ -69,8 +74,14 @@
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 200; overflow-y: auto; }
         .modal-content { background: #fff; margin: 20px auto; padding: 20px; width: 90%; border-radius: 12px; box-sizing: border-box; padding-bottom: 40px; }
         .form-group { margin-bottom: 12px; }
-        .form-group label { display: block; font-size: 0.85em; color: var(--text-light); margin-bottom: 4px; }
+        .form-group label { display: block; font-size: 0.85em; color: var(--text-light); margin-bottom: 4px; font-weight: bold; }
         .form-group input, .form-group select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        
+        .flight-fieldset { background: #f9f9f9; padding: 12px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #eee; }
+        .flight-fieldset h4 { margin: 0 0 10px 0; color: var(--accent-color); font-size: 0.95em; }
+        .flex-row { display: flex; gap: 8px; margin-bottom: 8px; }
+        .flex-row input { flex: 1; }
+
         .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
         .modal-btns button { flex: 1; padding: 12px; border: none; border-radius: 6px; font-weight: bold; }
         .btn-save { background: var(--text-dark); color: #fff; }
@@ -100,21 +111,24 @@
         <div class="sync-status" id="syncStatus">☁️ 連線中...</div>
     </div>
 
+    <!-- 首頁 -->
     <div id="homePage" class="page active">
         <div class="content">
-            <button class="btn-main" onclick="openTripModal()">+ 新增旅遊行程 (大家同步)</button>
+            <button class="btn-main" onclick="openTripModal()">+ 新增旅遊行程</button>
             <div id="tripListContainer"></div>
         </div>
     </div>
 
+    <!-- 行程頁 -->
     <div id="itineraryPage" class="page">
         <div class="nav-tabs" id="dayTabs"></div>
         <div class="content">
-            <button class="btn-main" onclick="openScheduleModal()">+ 新增當日行程 (大家同步)</button>
+            <button class="btn-main" onclick="openScheduleModal()">+ 新增當日行程</button>
             <div id="scheduleList"></div>
         </div>
     </div>
 
+    <!-- 記帳頁 -->
     <div id="expensePage" class="page">
         <div class="content">
             <div class="expense-summary">
@@ -139,27 +153,64 @@
         </div>
     </div>
 
-    <!-- 首頁旅遊卡片設定 Modal (新增/編輯共用) -->
+    <!-- 新版：首頁旅遊卡片設定 Modal -->
     <div id="tripModal" class="modal">
         <div class="modal-content">
             <h3 id="tripModalTitle" style="margin-top:0;">新增/編輯旅遊</h3>
             <input type="hidden" id="t_edit_id" value="">
             
-            <div class="form-group"><label>旅遊名稱</label><input type="text" id="t_name" placeholder="例: 首爾追星行"></div>
-            <div class="form-group"><label>出發日期</label><input type="date" id="t_date"></div>
-            <div class="form-group"><label>總天數</label><input type="number" id="t_days" placeholder="例: 5"></div>
-            <div class="form-group"><label>班機資訊 (選填，顯示在首頁)</label><input type="text" id="t_flight" placeholder="例: 去程 CI116 / 回程 CI117"></div>
+            <div class="form-group"><label>旅遊名稱</label><input type="text" id="t_name" placeholder="例: 福岡 TXT 演唱會之旅"></div>
+            <div class="flex-row">
+                <div class="form-group" style="flex:1;"><label>出發日期</label><input type="date" id="t_date"></div>
+                <div class="form-group" style="flex:1;"><label>總天數</label><input type="number" id="t_days" placeholder="例: 6"></div>
+            </div>
+            
+            <!-- 航班分欄填寫區 -->
+            <div class="flight-fieldset">
+                <h4>🛫 去程航班</h4>
+                <div class="flex-row">
+                    <input type="text" id="t_out_air" placeholder="航空 (例: 中華)">
+                    <input type="text" id="t_out_no" placeholder="班次 (例: CI116)">
+                </div>
+                <div class="flex-row">
+                    <input type="text" id="t_out_from" placeholder="出發地 (例: TPE)">
+                    <span style="line-height:36px; color:#888;">➔</span>
+                    <input type="text" id="t_out_to" placeholder="目的地 (例: FUK)">
+                </div>
+                <div class="flex-row">
+                    <input type="time" id="t_out_time_s">
+                    <span style="line-height:36px; color:#888;">-</span>
+                    <input type="time" id="t_out_time_e">
+                </div>
+            </div>
+
+            <div class="flight-fieldset">
+                <h4>🛬 回程航班</h4>
+                <div class="flex-row">
+                    <input type="text" id="t_in_air" placeholder="航空 (例: 中華)">
+                    <input type="text" id="t_in_no" placeholder="班次 (例: CI111)">
+                </div>
+                <div class="flex-row">
+                    <input type="text" id="t_in_from" placeholder="出發地 (例: FUK)">
+                    <span style="line-height:36px; color:#888;">➔</span>
+                    <input type="text" id="t_in_to" placeholder="目的地 (例: TPE)">
+                </div>
+                <div class="flex-row">
+                    <input type="time" id="t_in_time_s">
+                    <span style="line-height:36px; color:#888;">-</span>
+                    <input type="time" id="t_in_time_e">
+                </div>
+            </div>
             
             <div class="modal-btns">
                 <button class="btn-cancel" onclick="closeTripModal()">取消</button>
                 <button class="btn-save" onclick="saveTrip()">儲存設定</button>
             </div>
-            <!-- 如果是編輯模式，顯示刪除整趟旅程按鈕 -->
             <button id="btnDeleteTrip" onclick="deleteTrip()" style="display:none; width:100%; margin-top:15px; padding:10px; background:#ffebe9; color:#da3633; border:1px solid #da3633; border-radius:6px; font-weight:bold;">刪除此趟旅遊</button>
         </div>
     </div>
 
-    <!-- 行程設定 Modal -->
+    <!-- 行程設定 Modal (維持不變) -->
     <div id="scheduleModal" class="modal">
         <div class="modal-content">
             <h3 id="modalTitle" style="margin-top:0;">新增行程</h3>
@@ -192,7 +243,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
-        // 你的金鑰 (維持不變)
         const firebaseConfig = {
             apiKey: "AIzaSyCL5Kwizm5zbBTS6LBUVGCXQeNCZcg_tSI",
             authDomain: "travel-app-537e4.firebaseapp.com",
@@ -207,7 +257,6 @@
         const db = getDatabase(app);
         const dbRef = ref(db, 'sharedTravelData');
 
-        // --- 資料狀態初始化 ---
         window.sharedData = { trips: [], schedules: {}, categories: [] };
         window.localExpenses = JSON.parse(localStorage.getItem('myPrivateExpenses')) || {};
         window.currentTripId = null;
@@ -217,23 +266,28 @@
         window.saveSharedData = function() { set(dbRef, window.sharedData); };
         window.saveLocalExpenses = function() { localStorage.setItem('myPrivateExpenses', JSON.stringify(window.localExpenses)); };
 
-        // --- 計算倒數天數 ---
+        // --- 自動計算與格式化區間日期 ---
+        function formatTripDates(dateStr, days) {
+            if (!dateStr || !days) return "";
+            const start = new Date(dateStr);
+            const end = new Date(start);
+            end.setDate(start.getDate() + parseInt(days) - 1); // 加上天數推算結束日
+            
+            const fmt = (d) => `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+            return `${fmt(start)} ~ ${fmt(end)}`;
+        }
+
         function calculateTripCountdown(dateString) {
             if (!dateString) return "";
-            const targetDate = new Date(dateString);
-            targetDate.setHours(0,0,0,0);
-            const today = new Date();
-            today.setHours(0,0,0,0);
-            
-            const diffTime = targetDate - today;
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+            const targetDate = new Date(dateString); targetDate.setHours(0,0,0,0);
+            const today = new Date(); today.setHours(0,0,0,0);
+            const diffDays = Math.ceil((targetDate - today) / (1000 * 60 * 60 * 24)); 
             
             if (diffDays > 0) return `⏳ 倒數 ${diffDays} 天出發！`;
             if (diffDays === 0) return `🎉 就是今天，準備出發！`;
             return `✅ 旅程已開始或結束`;
         }
 
-        // --- 畫面更新邏輯 ---
         window.renderCurrentView = function() {
             if (document.getElementById('homePage').classList.contains('active')) window.renderHomePage();
             else if (document.getElementById('itineraryPage').classList.contains('active')) {
@@ -241,50 +295,78 @@
             } else if (document.getElementById('expensePage').classList.contains('active')) window.renderExpenses();
         };
 
+        // --- 繪製首頁 ---
         window.renderHomePage = function() {
             const container = document.getElementById('tripListContainer'); container.innerHTML = '';
-            
-            // 排序：將日期近的排前面 (選填)
             let sortedTrips = [...window.sharedData.trips].sort((a, b) => new Date(a.date) - new Date(b.date));
 
             sortedTrips.forEach(trip => {
                 const countdownText = calculateTripCountdown(trip.date);
-                const flightInfo = trip.flight ? `<p>🛫 班機: ${trip.flight}</p>` : '';
+                const dateRangeText = formatTripDates(trip.date, trip.days);
                 
+                // 組裝漂亮的航班區塊
+                let flightHtml = '';
+                if (trip.flights) {
+                    const out = trip.flights.outbound;
+                    const inb = trip.flights.inbound;
+                    if (out.air || out.no || inb.air) {
+                        flightHtml = `<div class="flight-info-box">`;
+                        if (out.air || out.no) {
+                            flightHtml += `<div class="f-row"><strong>🛫 去程：</strong>${out.air||''} ${out.from||''} ➔ ${out.to||''} ${out.time_s||''}-${out.time_e||''} <strong>${out.no||''}</strong></div>`;
+                        }
+                        if (inb.air || inb.no) {
+                            flightHtml += `<div class="f-row"><strong>🛬 回程：</strong>${inb.air||''} ${inb.from||''} ➔ ${inb.to||''} ${inb.time_s||''}-${inb.time_e||''} <strong>${inb.no||''}</strong></div>`;
+                        }
+                        flightHtml += `</div>`;
+                    }
+                }
+
                 container.innerHTML += `
                     <div class="trip-card" onclick="enterTrip('${trip.id}')">
                         <button class="btn-edit-trip" onclick="event.stopPropagation(); openTripModal('${trip.id}')">編輯</button>
                         <h2>✈️ ${trip.name}</h2>
                         <p class="trip-countdown">${countdownText}</p>
-                        <p>🗓️ 出發日期: ${trip.date}</p>
+                        <p>🗓️ 旅遊日期: ${dateRangeText}</p>
                         <p>⏱️ 旅遊天數: ${trip.days} 天</p>
-                        ${flightInfo}
+                        ${flightHtml}
                     </div>`;
             });
         };
 
-        // --- 旅程設定 (新增/編輯/刪除) ---
+        // --- 新版 Modal 填寫邏輯 ---
         window.openTripModal = function(tripId = null) { 
             document.getElementById('tripModal').style.display = 'block'; 
             
+            const fields = ['t_name','t_date','t_days','t_out_air','t_out_no','t_out_from','t_out_to','t_out_time_s','t_out_time_e','t_in_air','t_in_no','t_in_from','t_in_to','t_in_time_s','t_in_time_e'];
+            
             if (tripId) {
-                // 編輯模式
                 const trip = window.sharedData.trips.find(t => t.id === tripId);
                 document.getElementById('tripModalTitle').innerText = "編輯旅遊設定";
                 document.getElementById('t_edit_id').value = trip.id;
                 document.getElementById('t_name').value = trip.name;
                 document.getElementById('t_date').value = trip.date;
                 document.getElementById('t_days').value = trip.days;
-                document.getElementById('t_flight').value = trip.flight || '';
+                
+                const fl = trip.flights || { outbound:{}, inbound:{} };
+                document.getElementById('t_out_air').value = fl.outbound.air || '';
+                document.getElementById('t_out_no').value = fl.outbound.no || '';
+                document.getElementById('t_out_from').value = fl.outbound.from || '';
+                document.getElementById('t_out_to').value = fl.outbound.to || '';
+                document.getElementById('t_out_time_s').value = fl.outbound.time_s || '';
+                document.getElementById('t_out_time_e').value = fl.outbound.time_e || '';
+                
+                document.getElementById('t_in_air').value = fl.inbound.air || '';
+                document.getElementById('t_in_no').value = fl.inbound.no || '';
+                document.getElementById('t_in_from').value = fl.inbound.from || '';
+                document.getElementById('t_in_to').value = fl.inbound.to || '';
+                document.getElementById('t_in_time_s').value = fl.inbound.time_s || '';
+                document.getElementById('t_in_time_e').value = fl.inbound.time_e || '';
+
                 document.getElementById('btnDeleteTrip').style.display = 'block';
             } else {
-                // 新增模式
                 document.getElementById('tripModalTitle').innerText = "新增旅遊";
                 document.getElementById('t_edit_id').value = '';
-                document.getElementById('t_name').value = '';
-                document.getElementById('t_date').value = '';
-                document.getElementById('t_days').value = '';
-                document.getElementById('t_flight').value = '';
+                fields.forEach(f => document.getElementById(f).value = '');
                 document.getElementById('btnDeleteTrip').style.display = 'none';
             }
         };
@@ -296,18 +378,29 @@
             const name = document.getElementById('t_name').value;
             const date = document.getElementById('t_date').value;
             const days = parseInt(document.getElementById('t_days').value);
-            const flight = document.getElementById('t_flight').value;
             
             if(!name || !date || isNaN(days)) return alert('請填寫完整必填資訊！');
             
+            // 收集分欄位的航班資料
+            const flights = {
+                outbound: {
+                    air: document.getElementById('t_out_air').value, no: document.getElementById('t_out_no').value,
+                    from: document.getElementById('t_out_from').value, to: document.getElementById('t_out_to').value,
+                    time_s: document.getElementById('t_out_time_s').value, time_e: document.getElementById('t_out_time_e').value
+                },
+                inbound: {
+                    air: document.getElementById('t_in_air').value, no: document.getElementById('t_in_no').value,
+                    from: document.getElementById('t_in_from').value, to: document.getElementById('t_in_to').value,
+                    time_s: document.getElementById('t_in_time_s').value, time_e: document.getElementById('t_in_time_e').value
+                }
+            };
+            
             if (editId) {
-                // 更新現有旅程
                 const tripIndex = window.sharedData.trips.findIndex(t => t.id === editId);
-                window.sharedData.trips[tripIndex] = { id: editId, name, date, days, flight };
+                window.sharedData.trips[tripIndex] = { id: editId, name, date, days, flights };
             } else {
-                // 新增旅程
                 const newTripId = 'trip_' + Date.now();
-                window.sharedData.trips.push({ id: newTripId, name, date, days, flight });
+                window.sharedData.trips.push({ id: newTripId, name, date, days, flights });
                 window.sharedData.schedules[newTripId] = {};
                 window.localExpenses[newTripId] = [];
             }
@@ -321,11 +414,11 @@
                 window.sharedData.trips = window.sharedData.trips.filter(t => t.id !== editId);
                 delete window.sharedData.schedules[editId];
                 delete window.localExpenses[editId];
-                
                 window.saveSharedData(); window.saveLocalExpenses(); window.closeTripModal();
             }
         };
 
+        // --- 頁面切換與行程細節 (維持不變) ---
         window.enterTrip = function(tripId) {
             window.currentTripId = tripId; window.currentDay = 1;
             document.getElementById('navSchedule').style.display = 'block';
@@ -342,7 +435,6 @@
             window.switchPage('homePage', document.getElementById('navHome'));
         };
 
-        // --- 行程與頁面邏輯 (維持不變) ---
         window.renderTabs = function() {
             const trip = window.sharedData.trips.find(t => t.id === window.currentTripId);
             if(!trip) return;
@@ -451,6 +543,7 @@
             }
         };
 
+        // --- 私人花費記帳區塊 ---
         window.addExpense = function() {
             const name = document.getElementById('expenseName').value; const amount = parseFloat(document.getElementById('expenseAmount').value);
             const currency = document.getElementById('expenseCurrency').value;
@@ -500,7 +593,13 @@
                 if (!window.sharedData.categories) window.sharedData.categories = ["住宿", "餐廳", "景點", "交通"];
             } else {
                 window.sharedData = {
-                    trips: [ { id: 'trip_1', name: '福岡 TXT 演唱會之旅', date: '2024-12-16', days: 6, flight: '出發 CI116 / 回程 CI117' } ],
+                    trips: [ { 
+                        id: 'trip_1', name: '福岡 TXT 演唱會之旅', date: '2026-12-16', days: 6,
+                        flights: {
+                            outbound: { air: '中華', no: 'CI116', from: 'TPE', to: 'FUK', time_s: '16:25', time_e: '19:35' },
+                            inbound: { air: '中華', no: 'CI111', from: 'FUK', to: 'TPE', time_s: '11:00', time_e: '12:35' }
+                        }
+                    } ],
                     schedules: {
                         'trip_1': {
                             1: [{ title: "桃園機場", time: "16:25 起飛", type: "交通", res: "已訂位", resTime: "16:25", transport: "中華航空 CI116" }, { title: "福岡機場", time: "19:35 抵達", type: "交通", res: "免預約" }],
