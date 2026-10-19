@@ -7,7 +7,6 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="我的旅遊">
     <title>旅遊行程管理 (雲端同步版)</title>
-    <!-- 設定手機桌面的 APP 圖示 -->
     <link rel="apple-touch-icon" href="travel-bag.png">
     <link rel="icon" href="travel-bag.png">
     <style>
@@ -50,7 +49,6 @@
 
         .btn-main { width: 100%; padding: 12px; background: var(--text-dark); color: white; border: none; border-radius: 8px; font-weight: bold; margin-bottom: 20px; font-size: 1em; }
 
-        /* 修改：讓 Day 標籤可以顯示兩行並居中 */
         .nav-tabs { display: flex; background: #fff; padding: 10px; overflow-x: auto; border-bottom: 1px solid var(--border-color); }
         .nav-tabs button { background: none; border: 1px solid var(--border-color); padding: 8px 15px; margin-right: 5px; border-radius: 5px; color: var(--text-light); text-align: center; line-height: 1.3; font-weight: bold; flex-shrink: 0; }
         .nav-tabs button.active { background-color: var(--text-dark); color: #fff; border-color: var(--text-dark); }
@@ -163,7 +161,7 @@
         </div>
     </div>
 
-    <!-- 首頁旅遊卡片設定 Modal (密碼欄位改成 type="password") -->
+    <!-- 首頁旅遊卡片設定 Modal -->
     <div id="tripModal" class="modal">
         <div class="modal-content">
             <h3 id="tripModalTitle" style="margin-top:0;">新增/編輯旅遊</h3>
@@ -171,7 +169,6 @@
             
             <div class="form-group"><label>旅遊名稱</label><input type="text" id="t_name" placeholder="例: 福岡 TXT 演唱會之旅"></div>
             
-            <!-- 修改：密碼設定時也使用黑點點遮蔽 -->
             <div class="form-group">
                 <label style="color:var(--accent-color);">🔒 專屬密碼 (選填，防偷看)</label>
                 <input type="password" id="t_password" placeholder="留白表示公開，有填代表上鎖">
@@ -204,17 +201,17 @@
         </div>
     </div>
 
-    <!-- 新增：密碼輸入專屬安全 Modal (完全遮蔽打字內容) -->
+    <!-- 密碼輸入專屬安全 Modal -->
     <div id="passwordModal" class="modal" style="z-index: 300;">
         <div class="modal-content" style="width: 80%; max-width: 320px; text-align: center; margin-top: 25vh;">
-            <h3 style="margin-top:0; color:var(--accent-color);">🔒 行程已上鎖</h3>
+            <h3 style="margin-top:0; color:var(--accent-color);">🔒 安全驗證</h3>
             <p id="pwdTripName" style="font-size: 0.9em; color: #666; margin-bottom: 15px;"></p>
             <div class="form-group">
-                <input type="password" id="enter_pwd" placeholder="請輸入專屬密碼" style="text-align: center; font-size: 1.1em; letter-spacing: 2px;">
+                <input type="password" id="enter_pwd" placeholder="請輸入密碼" style="text-align: center; font-size: 1.1em; letter-spacing: 2px;">
             </div>
             <div class="modal-btns">
                 <button class="btn-cancel" onclick="closePasswordModal()">取消</button>
-                <button class="btn-save" onclick="verifyPassword()">進入行程</button>
+                <button class="btn-save" onclick="verifyPassword()">確認</button>
             </div>
         </div>
     </div>
@@ -301,7 +298,8 @@
         window.currentTripId = null;
         window.currentDay = 1;
         window.dynamicRates = { JPY: 0.21, KRW: 0.024, TWD: 1 };
-        window.pendingTripId = null; // 用來暫存準備解鎖的行程 ID
+        window.pendingTripAction = null; 
+        window.pendingTripId = null;
 
         window.saveSharedData = function() { set(dbRef, window.sharedData); };
         window.saveLocalExpenses = function() { localStorage.setItem('myPrivateExpenses', JSON.stringify(window.localExpenses)); };
@@ -324,9 +322,7 @@
         }
         fetchExchangeRates();
 
-        // 日期計算與星期幾轉換
         const daysOfWeek = ['日', '一', '二', '三', '四', '五', '六'];
-        
         function formatTripDates(dateStr, days) {
             if (!dateStr || !days) return "";
             const start = new Date(dateStr); const end = new Date(start);
@@ -335,14 +331,11 @@
             return `${fmt(start)} ~ ${fmt(end)}`;
         }
 
-        // --- 新增：將 Day 1 轉換為日期格式 (例：12/16 (三)) ---
         function getDayTabLabel(startDateStr, dayIndex) {
             if (!startDateStr) return `Day ${dayIndex}`;
             const date = new Date(startDateStr);
             date.setDate(date.getDate() + dayIndex - 1);
-            const m = date.getMonth() + 1;
-            const d = date.getDate();
-            const w = daysOfWeek[date.getDay()];
+            const m = date.getMonth() + 1; const d = date.getDate(); const w = daysOfWeek[date.getDay()];
             return `Day ${dayIndex}<br><span style="font-size:0.75em; color:#888;">${m}/${d} (${w})</span>`;
         }
 
@@ -385,7 +378,7 @@
 
                 container.innerHTML += `
                     <div class="trip-card" onclick="enterTrip('${trip.id}')">
-                        <button class="btn-edit-trip" onclick="event.stopPropagation(); openTripModal('${trip.id}')">編輯</button>
+                        <button class="btn-edit-trip" onclick="event.stopPropagation(); triggerEditTrip('${trip.id}')">編輯</button>
                         <h2>✈️ ${trip.name}${lockIcon}</h2>
                         <p class="trip-countdown">${countdownText}</p>
                         <p>🗓️ 旅遊日期: ${dateRangeText}</p>
@@ -393,6 +386,16 @@
                         ${flightHtml}
                     </div>`;
             });
+        };
+
+        // --- 防護 1：點擊編輯時，如果沒解鎖要先擋下 ---
+        window.triggerEditTrip = function(tripId) {
+            const trip = window.sharedData.trips.find(t => t.id === tripId);
+            if (trip.password && window.unlockedTrips[tripId] !== trip.password) {
+                window.openPasswordModal(tripId, trip.name, 'edit');
+                return;
+            }
+            window.openTripModal(tripId);
         };
 
         window.openTripModal = function(tripId = null) { 
@@ -428,6 +431,7 @@
         
         window.closeTripModal = function() { document.getElementById('tripModal').style.display = 'none'; };
         
+        // --- 防護 2：儲存修改時，如果是改密碼要輸入舊密碼確認 ---
         window.saveTrip = function() {
             const editId = document.getElementById('t_edit_id').value;
             const name = document.getElementById('t_name').value;
@@ -444,28 +448,62 @@
             
             if (editId) {
                 const tripIndex = window.sharedData.trips.findIndex(t => t.id === editId);
+                const origTrip = window.sharedData.trips[tripIndex];
+
+                // 檢查是否正在試圖修改或移除既有密碼
+                if (origTrip.password && origTrip.password !== password) {
+                    const checkPwd = prompt(`🛡️ 安全確認：\n您正在嘗試修改或移除「${origTrip.name}」的密碼。\n請輸入【舊密碼】以確認修改：`);
+                    if (checkPwd === null) return;
+                    if (checkPwd !== origTrip.password) {
+                        alert("舊密碼驗證失敗！設定未儲存。");
+                        return;
+                    }
+                    // 修改成功，更新本機鑰匙
+                    if (password) window.unlockedTrips[editId] = password;
+                    else delete window.unlockedTrips[editId];
+                    window.saveUnlockedTrips();
+                } else if (!origTrip.password && password) {
+                    // 原本沒密碼，現在新增密碼
+                    window.unlockedTrips[editId] = password;
+                    window.saveUnlockedTrips();
+                }
+
                 window.sharedData.trips[tripIndex] = { id: editId, name, password, date, days, flights };
             } else {
                 const newTripId = 'trip_' + Date.now();
                 window.sharedData.trips.push({ id: newTripId, name, password, date, days, flights });
                 window.sharedData.schedules[newTripId] = {};
                 window.localExpenses[newTripId] = [];
+                if(password) { window.unlockedTrips[newTripId] = password; window.saveUnlockedTrips(); }
             }
             window.saveSharedData(); window.saveLocalExpenses(); window.closeTripModal();
         };
 
+        // --- 防護 3：刪除行程前要求輸入密碼 ---
         window.deleteTrip = function() {
             const editId = document.getElementById('t_edit_id').value;
+            const origTrip = window.sharedData.trips.find(t => t.id === editId);
+
+            if (origTrip.password) {
+                const checkPwd = prompt(`🛡️ 刪除安全確認：\n這趟旅遊已上鎖！\n請輸入「${origTrip.name}」的密碼以確認刪除權限：`);
+                if (checkPwd === null) return;
+                if (checkPwd !== origTrip.password) {
+                    alert("密碼驗證失敗！無法刪除。");
+                    return;
+                }
+            }
+
             if(confirm('確定要刪除這整趟旅遊嗎？這會同時刪除雲端上所有的相關行程！')) {
                 window.sharedData.trips = window.sharedData.trips.filter(t => t.id !== editId);
                 delete window.sharedData.schedules[editId]; delete window.localExpenses[editId];
-                window.saveSharedData(); window.saveLocalExpenses(); window.closeTripModal();
+                delete window.unlockedTrips[editId];
+                window.saveSharedData(); window.saveLocalExpenses(); window.saveUnlockedTrips(); window.closeTripModal();
             }
         };
 
-        // --- 安全密碼驗證流程 ---
-        window.openPasswordModal = function(tripId, tripName) {
+        window.openPasswordModal = function(tripId, tripName, action) {
             window.pendingTripId = tripId;
+            window.pendingTripAction = action; // 'enter' 或 'edit'
             document.getElementById('pwdTripName').innerText = tripName;
             document.getElementById('enter_pwd').value = '';
             document.getElementById('passwordModal').style.display = 'block';
@@ -473,35 +511,35 @@
 
         window.closePasswordModal = function() {
             window.pendingTripId = null;
+            window.pendingTripAction = null;
             document.getElementById('passwordModal').style.display = 'none';
         };
 
         window.verifyPassword = function() {
             const pwd = document.getElementById('enter_pwd').value;
             const tripId = window.pendingTripId;
+            const action = window.pendingTripAction;
             const trip = window.sharedData.trips.find(t => t.id === tripId);
             
             if (pwd !== trip.password) {
-                alert("密碼錯誤！無法進入查看。");
+                alert("密碼錯誤！存取遭到拒絕。");
                 return;
             }
             
-            // 密碼正確，記錄到手機，然後關閉視窗並載入行程
             window.unlockedTrips[tripId] = trip.password;
             window.saveUnlockedTrips();
             window.closePasswordModal();
-            window.proceedToEnterTrip(tripId);
+            
+            if (action === 'enter') window.proceedToEnterTrip(tripId);
+            else if (action === 'edit') window.openTripModal(tripId);
         };
 
         window.enterTrip = function(tripId) {
             const trip = window.sharedData.trips.find(t => t.id === tripId);
-            
-            // 檢查是否需要密碼且尚未解鎖
             if (trip.password && window.unlockedTrips[tripId] !== trip.password) {
-                window.openPasswordModal(tripId, trip.name);
-                return; // 中斷進入流程，等待密碼視窗結果
+                window.openPasswordModal(tripId, trip.name, 'enter');
+                return; 
             }
-            // 如果沒鎖或已解鎖，直接進入
             window.proceedToEnterTrip(tripId);
         };
 
@@ -519,14 +557,12 @@
             window.switchPage('homePage', document.getElementById('navHome'));
         };
 
-        // --- 重新設計：Day 標籤自動轉換日期與星期 ---
         window.renderTabs = function() {
             const trip = window.sharedData.trips.find(t => t.id === window.currentTripId);
             if(!trip) return;
             const tabsDiv = document.getElementById('dayTabs'); tabsDiv.innerHTML = '';
             for (let i = 1; i <= trip.days; i++) {
                 const btn = document.createElement('button'); 
-                // 利用函式推算出： Day 1 \n 12/16 (三)
                 btn.innerHTML = getDayTabLabel(trip.date, i); 
                 if (i === window.currentDay) btn.className = 'active';
                 btn.onclick = () => { window.currentDay = i; window.renderTabs(); window.renderSchedules(); };
