@@ -95,7 +95,33 @@
         .btn-save { background: var(--text-dark); color: #fff; }
         .btn-cancel { background: #eee; color: #333; }
 
-        /* 分帳與個人記帳樣式 */
+        /* 修改：適應手機版選單樣式 */
+        .mode-switch { 
+            display: flex; 
+            width: 100%; 
+            background: #e0d8c8; 
+            border-radius: 8px; 
+            padding: 4px; 
+            margin-bottom: 15px; 
+            box-sizing: border-box; 
+        }
+        .mode-btn { 
+            flex: 1; 
+            padding: 10px 4px; 
+            text-align: center; 
+            font-size: 0.85em; 
+            font-weight: bold; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            color: #666; 
+            white-space: nowrap; 
+        }
+        .mode-btn.active { 
+            background: #fff; 
+            color: var(--text-dark); 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+        }
+
         .expense-summary { background: #fff; padding: 18px; text-align: center; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .expense-total { font-size: 1.5em; font-weight: bold; color: var(--accent-color); margin: 5px 0; }
         .expense-item { background: #fff; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--border-color); }
@@ -103,10 +129,6 @@
         .settle-box { background: #e2f0d9; border: 1px solid #548235; color: #333; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 0.9em; }
 
         .add-form { background: #fff; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border-color); }
-        
-        .mode-switch { display: flex; background: #e0d8c8; border-radius: 8px; padding: 3px; margin-bottom: 15px; }
-        .mode-btn { flex: 1; padding: 8px; text-align: center; font-size: 0.9em; font-weight: bold; border-radius: 6px; cursor: pointer; color: #666; }
-        .mode-btn.active { background: #fff; color: var(--text-dark); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
 
         .page { display: none; }
         .page.active { display: block; }
@@ -145,10 +167,10 @@
     <!-- 記帳與分帳頁面 -->
     <div id="expensePage" class="page">
         <div class="content">
-            <!-- 模式切換：個人記帳 vs 群組分帳 -->
+            <!-- 模式切換按鈕 (已針對手機尺寸強化) -->
             <div class="mode-switch">
-                <div class="mode-btn active" id="btnModePersonal" onclick="switchExpenseMode('personal')">🔒 我的私人記帳</div>
-                <div class="mode-btn" id="btnModeGroup" onclick="switchExpenseMode('group')">👥 團體群組分帳</div>
+                <div class="mode-btn active" id="btnModePersonal" onclick="switchExpenseMode('personal')">🔒 私人記帳</div>
+                <div class="mode-btn" id="btnModeGroup" onclick="switchExpenseMode('group')">👥 團體分帳</div>
             </div>
 
             <!-- 總計區 -->
@@ -178,7 +200,7 @@
                     </select>
                 </div>
 
-                <!-- 群組分帳專屬欄位 -->
+                <!-- 團體分帳專屬欄位 -->
                 <div id="groupFields" style="display:none;">
                     <div class="form-group">
                         <label>💳 誰先墊錢？</label>
@@ -347,7 +369,7 @@
         
         window.currentTripId = null;
         window.currentDay = 1;
-        window.expenseMode = 'personal'; // 'personal' 或 'group'
+        window.expenseMode = 'personal'; 
         window.dynamicRates = { JPY: 0.21, KRW: 0.024, TWD: 1 };
         window.pendingTripAction = null; window.pendingTripId = null;
 
@@ -749,14 +771,12 @@
             const trip = window.sharedData.trips.find(t => t.id === window.currentTripId);
             const members = (trip && trip.members && trip.members.length > 0) ? trip.members : ['我'];
             
-            // 填入付款人下拉選單
             const payerSelect = document.getElementById('expensePayer');
             payerSelect.innerHTML = '';
             members.forEach(m => {
                 payerSelect.innerHTML += `<option value="${m}">${m}</option>`;
             });
 
-            // 填入自訂分攤金額的勾選框
             const checkContainer = document.getElementById('memberSplitCheckboxes');
             checkContainer.innerHTML = '';
             members.forEach(m => {
@@ -781,7 +801,6 @@
             document.getElementById('customSplitField').style.display = (type === 'CUSTOM') ? 'block' : 'none';
         };
 
-        // --- 新增記帳 (同時支援個人與群組) ---
         window.addExpense = function() {
             const name = document.getElementById('expenseName').value; 
             const amount = parseFloat(document.getElementById('expenseAmount').value);
@@ -845,7 +864,6 @@
             }
         };
 
-        // --- 一鍵群組算帳 ---
         window.calculateAllSettlement = function() {
             const expList = window.sharedData.expenses[window.currentTripId] || [];
             const activeExp = expList.filter(e => !e.isSettled);
