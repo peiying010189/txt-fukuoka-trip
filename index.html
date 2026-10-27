@@ -96,29 +96,13 @@
         .btn-cancel { background: #eee; color: #333; }
 
         .mode-switch { 
-            display: flex; 
-            width: 100%; 
-            background: #e0d8c8; 
-            border-radius: 8px; 
-            padding: 4px; 
-            margin-bottom: 15px; 
-            box-sizing: border-box; 
+            display: flex; width: 100%; background: #e0d8c8; border-radius: 8px; padding: 4px; margin-bottom: 15px; box-sizing: border-box; 
         }
         .mode-btn { 
-            flex: 1; 
-            padding: 10px 4px; 
-            text-align: center; 
-            font-size: 0.85em; 
-            font-weight: bold; 
-            border-radius: 6px; 
-            cursor: pointer; 
-            color: #666; 
-            white-space: nowrap; 
+            flex: 1; padding: 10px 4px; text-align: center; font-size: 0.85em; font-weight: bold; border-radius: 6px; cursor: pointer; color: #666; white-space: nowrap; 
         }
         .mode-btn.active { 
-            background: #fff; 
-            color: var(--text-dark); 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+            background: #fff; color: var(--text-dark); box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
         }
 
         .expense-summary { background: #fff; padding: 18px; text-align: center; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
@@ -128,6 +112,23 @@
         .settle-box { background: #e2f0d9; border: 1px solid #548235; color: #333; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 0.9em; }
 
         .add-form { background: #fff; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border-color); }
+
+        /* 手機分攤排版優化：改為獨立行避免擠壓 */
+        .member-split-row {
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 6px;
+            padding: 8px 10px;
+            margin-bottom: 8px;
+        }
+        .member-split-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
 
         .page { display: none; }
         .page.active { display: block; }
@@ -240,7 +241,7 @@
                 <input type="password" id="t_password" placeholder="留白表示公開，有填代表上鎖">
             </div>
 
-            <!-- 群組成員設定欄位（每趟行程獨立） -->
+            <!-- 群組成員設定欄位 -->
             <div class="form-group">
                 <label style="color:var(--accent-color);">👥 本趟行程同行成員 (分帳用，用逗號隔開)</label>
                 <input type="text" id="t_members" placeholder="例: 我, 小明, 小華">
@@ -496,7 +497,7 @@
                 document.getElementById('tripModalTitle').innerText = "新增旅遊";
                 document.getElementById('t_edit_id').value = '';
                 fields.forEach(f => document.getElementById(f).value = '');
-                document.getElementById('t_members').value = '我'; // 新增時給予獨立預設值
+                document.getElementById('t_members').value = '我';
                 document.getElementById('btnDeleteTrip').style.display = 'none';
             }
         };
@@ -508,7 +509,6 @@
             const name = document.getElementById('t_name').value;
             const password = document.getElementById('t_password').value.trim(); 
             const membersRaw = document.getElementById('t_members').value.trim();
-            // 確保每趟行程解析自己的成員名單
             const members = membersRaw ? membersRaw.split(',').map(m => m.trim()).filter(m => m) : ['我'];
             const date = document.getElementById('t_date').value;
             const days = parseInt(document.getElementById('t_days').value);
@@ -751,7 +751,6 @@
             }
         };
 
-        // --- 記帳切換邏輯 (個人 vs 群組) ---
         window.switchExpenseMode = function(mode) {
             window.expenseMode = mode;
             document.getElementById('btnModePersonal').classList.toggle('active', mode === 'personal');
@@ -768,7 +767,6 @@
             window.renderExpenses();
         };
 
-        // 精準抓取當前行程專屬的成員名單
         window.setupGroupDropdowns = function() {
             const trip = window.sharedData.trips.find(t => t.id === window.currentTripId);
             const members = (trip && trip.members && trip.members.length > 0) ? trip.members : ['我'];
@@ -782,11 +780,14 @@
             const checkContainer = document.getElementById('memberSplitCheckboxes');
             checkContainer.innerHTML = '';
             members.forEach(m => {
+                // 手機排版優化：改為上下排列，金額輸入框獨佔一行
                 checkContainer.innerHTML += `
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:5px;">
-                        <input type="checkbox" id="split_chk_${m}" value="${m}" checked onchange="toggleMemberInput('${m}')">
-                        <label for="split_chk_${m}" style="flex:1; margin:0; font-weight:normal;">${m}</label>
-                        <input type="number" id="split_val_${m}" placeholder="金額" style="width:100px; padding:4px;" value="">
+                    <div class="member-split-row">
+                        <div class="member-split-top">
+                            <input type="checkbox" id="split_chk_${m}" value="${m}" checked onchange="toggleMemberInput('${m}')" style="width:20px; height:20px; margin-right:8px;">
+                            <label for="split_chk_${m}" style="flex:1; margin:0; font-weight:bold; color:#333;">${m}</label>
+                        </div>
+                        <input type="number" id="split_val_${m}" placeholder="輸入分攤金額" style="width:100%; padding:8px; box-sizing:border-box;" value="">
                     </div>`;
             });
         };
