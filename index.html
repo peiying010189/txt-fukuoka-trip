@@ -47,7 +47,7 @@
             border: none; border-radius: 6px; padding: 5px 12px; font-size: 0.8em; font-weight: bold; cursor: pointer;
         }
 
-        .btn-main { width: 100%; padding: 12px; background: var(--text-dark); color: white; border: none; border-radius: 8px; font-weight: bold; margin-bottom: 20px; font-size: 1em; }
+        .btn-main { width: 100%; padding: 12px; background: var(--text-dark); color: white; border: none; border-radius: 8px; font-weight: bold; margin-bottom: 15px; font-size: 1em; cursor: pointer; }
 
         .nav-tabs { display: flex; background: #fff; padding: 10px; overflow-x: auto; border-bottom: 1px solid var(--border-color); }
         .nav-tabs button { background: none; border: 1px solid var(--border-color); padding: 8px 15px; margin-right: 5px; border-radius: 5px; color: var(--text-light); text-align: center; line-height: 1.3; font-weight: bold; flex-shrink: 0; }
@@ -91,18 +91,22 @@
         .flex-row input { flex: 1; }
 
         .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
-        .modal-btns button { flex: 1; padding: 12px; border: none; border-radius: 6px; font-weight: bold; }
+        .modal-btns button { flex: 1; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
         .btn-save { background: var(--text-dark); color: #fff; }
         .btn-cancel { background: #eee; color: #333; }
 
-        /* 分帳模組造型 */
-        .expense-summary { background: #fff; padding: 18px; text-align: center; border-radius: 12px; margin-bottom: 20px; position:relative; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .expense-total { font-size: 1.6em; font-weight: bold; color: var(--accent-color); margin: 5px 0; }
+        /* 分帳與個人記帳樣式 */
+        .expense-summary { background: #fff; padding: 18px; text-align: center; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .expense-total { font-size: 1.5em; font-weight: bold; color: var(--accent-color); margin: 5px 0; }
         .expense-item { background: #fff; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--border-color); }
         .expense-item.settled { opacity: 0.5; background: #f9f9f9; }
-        .settle-box { background: #e2f0d9; border: 1px solid #548235; color: #333; padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 0.9em; }
+        .settle-box { background: #e2f0d9; border: 1px solid #548235; color: #333; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 0.9em; }
 
         .add-form { background: #fff; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border-color); }
+        
+        .mode-switch { display: flex; background: #e0d8c8; border-radius: 8px; padding: 3px; margin-bottom: 15px; }
+        .mode-btn { flex: 1; padding: 8px; text-align: center; font-size: 0.9em; font-weight: bold; border-radius: 6px; cursor: pointer; color: #666; }
+        .mode-btn.active { background: #fff; color: var(--text-dark); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
 
         .page { display: none; }
         .page.active { display: block; }
@@ -141,20 +145,29 @@
     <!-- 記帳與分帳頁面 -->
     <div id="expensePage" class="page">
         <div class="content">
-            <div class="expense-summary">
-                <div>🤝 旅遊共同總花費 (估算台幣)</div>
-                <div class="expense-total" id="totalTwd">TWD 0</div>
-                <div id="rateInfo" style="font-size: 0.75em; color: #888; margin-top: 4px;">🔄 正在抓取今日最新匯率...</div>
+            <!-- 模式切換：個人記帳 vs 群組分帳 -->
+            <div class="mode-switch">
+                <div class="mode-btn active" id="btnModePersonal" onclick="switchExpenseMode('personal')">🔒 我的私人記帳</div>
+                <div class="mode-btn" id="btnModeGroup" onclick="switchExpenseMode('group')">👥 團體群組分帳</div>
             </div>
 
-            <!-- 結算結果跳出區 -->
-            <button class="btn-main" style="background:#548235; margin-bottom:15px;" onclick="calculateAllSettlement()">🧮 算帳！一鍵總結算 (誰給誰多少錢)</button>
-            <div id="settlementResult" style="display:none;" class="settle-box"></div>
+            <!-- 總計區 -->
+            <div class="expense-summary">
+                <div id="summaryTitle">我的專屬總花費 (台幣)</div>
+                <div class="expense-total" id="totalTwd">TWD 0</div>
+                <div id="rateInfo" style="font-size: 0.75em; color: #888; margin-top: 4px;">🔄 正在抓取最新匯率...</div>
+            </div>
+
+            <!-- 團體分帳專屬結算區 -->
+            <div id="groupSettlementSection" style="display:none;">
+                <button class="btn-main" style="background:#548235;" onclick="calculateAllSettlement()">🧮 計算誰該給誰多少錢 (AA總結算)</button>
+                <div id="settlementResult" style="display:none;" class="settle-box"></div>
+            </div>
 
             <!-- 新增記帳表單 -->
             <div class="add-form">
-                <h4 style="margin:0 0 10px 0; color:var(--accent-color);">新增一筆支出 / 代墊款</h4>
-                <div class="form-group"><input type="text" id="expenseName" placeholder="花費項目 (例: 敘敘苑晚餐)"></div>
+                <h4 style="margin:0 0 10px 0; color:var(--accent-color);" id="formTitle">新增私人花費</h4>
+                <div class="form-group"><input type="text" id="expenseName" placeholder="花費項目 (例: 晚餐 / 伴手禮)"></div>
                 
                 <div class="flex-row">
                     <input type="number" id="expenseAmount" placeholder="金額" style="flex:2;">
@@ -165,25 +178,28 @@
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <label>💳 誰先墊錢？(付款人)</label>
-                    <input type="text" id="expensePayer" placeholder="例: 我 / 小明 / 小華">
+                <!-- 群組分帳專屬欄位 -->
+                <div id="groupFields" style="display:none;">
+                    <div class="form-group">
+                        <label>💳 誰先墊錢？</label>
+                        <select id="expensePayer" style="background:#fff;"></select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>👥 分攤方式</label>
+                        <select id="expenseSplitType" onchange="toggleSplitFields()" style="background:#fff;">
+                            <option value="AA">參與成員全面平分 (AA制)</option>
+                            <option value="CUSTOM">手動自訂各成員分攤金額</option>
+                        </select>
+                    </div>
+
+                    <div id="customSplitField" class="form-group" style="display:none; background:#f9f9f9; padding:10px; border-radius:6px;">
+                        <label style="margin-bottom:6px;">勾選要分攤的人並填入金額：</label>
+                        <div id="memberSplitCheckboxes"></div>
+                    </div>
                 </div>
 
-                <div class="form-group">
-                    <label>👥 分攤方式</label>
-                    <select id="expenseSplitType" onchange="toggleSplitFields()">
-                        <option value="AA">大家平分 (AA制)</option>
-                        <option value="CUSTOM">指定人員 / 自訂金額</option>
-                    </select>
-                </div>
-
-                <div id="customSplitField" class="form-group" style="display:none; background:#f9f9f9; padding:10px; border-radius:6px;">
-                    <label>填寫參與分攤的人與金額 (逗號隔開)</label>
-                    <input type="text" id="expenseSplitDetails" placeholder="例: 小明:1000, 小華:1500">
-                </div>
-
-                <button class="btn-main" style="margin-bottom:0;" onclick="addExpense()">記下一筆帳</button>
+                <button class="btn-main" style="margin-bottom:0;" onclick="addExpense()">確認新增紀錄</button>
             </div>
 
             <div id="expenseList"></div>
@@ -201,6 +217,12 @@
             <div class="form-group">
                 <label style="color:var(--accent-color);">🔒 專屬密碼 (選填，防偷看)</label>
                 <input type="password" id="t_password" placeholder="留白表示公開，有填代表上鎖">
+            </div>
+
+            <!-- 群組成員設定欄位 -->
+            <div class="form-group">
+                <label style="color:var(--accent-color);">👥 群組同行成員 (用來分帳，名字用逗號隔開)</label>
+                <input type="text" id="t_members" placeholder="例: 我, 小明, 小華, 媽媽">
             </div>
 
             <div class="flex-row">
@@ -298,7 +320,7 @@
     <div class="bottom-nav">
         <div class="nav-item active" id="navHome" onclick="goToHome()"><div class="nav-icon">🏠</div><div>首頁</div></div>
         <div class="nav-item" id="navSchedule" onclick="switchPage('itineraryPage', this)" style="display:none;"><div class="nav-icon">📅</div><div>行程清單</div></div>
-        <div class="nav-item" id="navExpense" onclick="switchPage('expensePage', this)" style="display:none;"><div class="nav-icon">💰</div><div>拆帳金庫</div></div>
+        <div class="nav-item" id="navExpense" onclick="switchPage('expensePage', this)" style="display:none;"><div class="nav-icon">💰</div><div>記帳與分帳</div></div>
     </div>
 
     <script type="module">
@@ -320,14 +342,17 @@
         const dbRef = ref(db, 'sharedTravelData');
 
         window.sharedData = { trips: [], schedules: {}, expenses: {}, categories: [] };
+        window.localExpenses = JSON.parse(localStorage.getItem('myPrivateExpenses')) || {};
         window.unlockedTrips = JSON.parse(localStorage.getItem('myUnlockedTrips')) || {};
         
         window.currentTripId = null;
         window.currentDay = 1;
+        window.expenseMode = 'personal'; // 'personal' 或 'group'
         window.dynamicRates = { JPY: 0.21, KRW: 0.024, TWD: 1 };
         window.pendingTripAction = null; window.pendingTripId = null;
 
         window.saveSharedData = function() { set(dbRef, window.sharedData); };
+        window.saveLocalExpenses = function() { localStorage.setItem('myPrivateExpenses', JSON.stringify(window.localExpenses)); };
         window.saveUnlockedTrips = function() { localStorage.setItem('myUnlockedTrips', JSON.stringify(window.unlockedTrips)); };
 
         async function fetchExchangeRates() {
@@ -424,7 +449,7 @@
 
         window.openTripModal = function(tripId = null) { 
             document.getElementById('tripModal').style.display = 'block'; 
-            const fields = ['t_name','t_password','t_date','t_days','t_out_air','t_out_no','t_out_from','t_out_to','t_out_time_s','t_out_time_e','t_in_air','t_in_no','t_in_from','t_in_to','t_in_time_s','t_in_time_e'];
+            const fields = ['t_name','t_password','t_members','t_date','t_days','t_out_air','t_out_no','t_out_from','t_out_to','t_out_time_s','t_out_time_e','t_in_air','t_in_no','t_in_from','t_in_to','t_in_time_s','t_in_time_e'];
             
             if (tripId) {
                 const trip = window.sharedData.trips.find(t => t.id === tripId);
@@ -432,6 +457,7 @@
                 document.getElementById('t_edit_id').value = trip.id;
                 document.getElementById('t_name').value = trip.name;
                 document.getElementById('t_password').value = trip.password || ''; 
+                document.getElementById('t_members').value = trip.members ? trip.members.join(', ') : '';
                 document.getElementById('t_date').value = trip.date;
                 document.getElementById('t_days').value = trip.days;
                 
@@ -459,6 +485,8 @@
             const editId = document.getElementById('t_edit_id').value;
             const name = document.getElementById('t_name').value;
             const password = document.getElementById('t_password').value.trim(); 
+            const membersRaw = document.getElementById('t_members').value.trim();
+            const members = membersRaw ? membersRaw.split(',').map(m => m.trim()).filter(m => m) : ['我'];
             const date = document.getElementById('t_date').value;
             const days = parseInt(document.getElementById('t_days').value);
             
@@ -484,10 +512,10 @@
                     window.unlockedTrips[editId] = password; window.saveUnlockedTrips();
                 }
 
-                window.sharedData.trips[tripIndex] = { id: editId, name, password, date, days, flights };
+                window.sharedData.trips[tripIndex] = { id: editId, name, password, members, date, days, flights };
             } else {
                 const newTripId = 'trip_' + Date.now();
-                window.sharedData.trips.push({ id: newTripId, name, password, date, days, flights });
+                window.sharedData.trips.push({ id: newTripId, name, password, members, date, days, flights });
                 window.sharedData.schedules[newTripId] = {};
                 window.sharedData.expenses[newTripId] = [];
                 if(password) { window.unlockedTrips[newTripId] = password; window.saveUnlockedTrips(); }
@@ -549,6 +577,7 @@
             window.currentTripId = tripId; window.currentDay = 1;
             document.getElementById('navSchedule').style.display = 'block';
             document.getElementById('navExpense').style.display = 'block';
+            if (!window.localExpenses[tripId]) { window.localExpenses[tripId] = []; window.saveLocalExpenses(); }
             if (!window.sharedData.expenses[tripId]) { window.sharedData.expenses[tripId] = []; window.saveSharedData(); }
             window.renderCategories(); window.switchPage('itineraryPage', document.getElementById('navSchedule'));
         };
@@ -694,135 +723,181 @@
         };
 
         window.deleteSchedule = function(index) {
-            if(confirm('確定刪除這個行程？ (大家都會同步被刪除喔)')) { 
+            if(confirm('確定刪除這個行程？')) { 
                 window.sharedData.schedules[window.currentTripId][window.currentDay].splice(index, 1); window.saveSharedData(); 
             }
         };
 
-        // --- 多人群組拆帳核心系統 (大家即時同步) ---
+        // --- 記帳切換邏輯 (個人 vs 群組) ---
+        window.switchExpenseMode = function(mode) {
+            window.expenseMode = mode;
+            document.getElementById('btnModePersonal').classList.toggle('active', mode === 'personal');
+            document.getElementById('btnModeGroup').classList.toggle('active', mode === 'group');
+            
+            document.getElementById('groupFields').style.display = (mode === 'group') ? 'block' : 'none';
+            document.getElementById('groupSettlementSection').style.display = (mode === 'group') ? 'block' : 'none';
+            document.getElementById('formTitle').innerText = (mode === 'group') ? '新增團體分帳支出' : '新增私人花費';
+            document.getElementById('summaryTitle').innerText = (mode === 'group') ? '👥 團體群組總花費 (估算台幣)' : '🔒 我的專屬總花費 (台幣)';
+            
+            if (mode === 'group') {
+                window.setupGroupDropdowns();
+            }
+            window.renderExpenses();
+        };
+
+        window.setupGroupDropdowns = function() {
+            const trip = window.sharedData.trips.find(t => t.id === window.currentTripId);
+            const members = (trip && trip.members && trip.members.length > 0) ? trip.members : ['我'];
+            
+            // 填入付款人下拉選單
+            const payerSelect = document.getElementById('expensePayer');
+            payerSelect.innerHTML = '';
+            members.forEach(m => {
+                payerSelect.innerHTML += `<option value="${m}">${m}</option>`;
+            });
+
+            // 填入自訂分攤金額的勾選框
+            const checkContainer = document.getElementById('memberSplitCheckboxes');
+            checkContainer.innerHTML = '';
+            members.forEach(m => {
+                checkContainer.innerHTML += `
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:5px;">
+                        <input type="checkbox" id="split_chk_${m}" value="${m}" checked onchange="toggleMemberInput('${m}')">
+                        <label for="split_chk_${m}" style="flex:1; margin:0; font-weight:normal;">${m}</label>
+                        <input type="number" id="split_val_${m}" placeholder="金額" style="width:100px; padding:4px;" value="">
+                    </div>`;
+            });
+        };
+
+        window.toggleMemberInput = function(name) {
+            const chk = document.getElementById(`split_chk_${name}`);
+            const input = document.getElementById(`split_val_${name}`);
+            input.disabled = !chk.checked;
+            if(!chk.checked) input.value = '';
+        };
+
         window.toggleSplitFields = function() {
             const type = document.getElementById('expenseSplitType').value;
             document.getElementById('customSplitField').style.display = (type === 'CUSTOM') ? 'block' : 'none';
         };
 
+        // --- 新增記帳 (同時支援個人與群組) ---
         window.addExpense = function() {
             const name = document.getElementById('expenseName').value; 
             const amount = parseFloat(document.getElementById('expenseAmount').value);
             const currency = document.getElementById('expenseCurrency').value;
-            const payer = document.getElementById('expensePayer').value.trim() || '我';
-            const splitType = document.getElementById('expenseSplitType').value;
-            const customDetails = document.getElementById('expenseSplitDetails').value.trim();
-
             if(!name || isNaN(amount)) return alert("請輸入完整的項目名稱與金額！");
             
             const rateAtThisMoment = window.dynamicRates[currency];
 
-            if(!window.sharedData.expenses[window.currentTripId]) window.sharedData.expenses[window.currentTripId] = [];
+            if (window.expenseMode === 'personal') {
+                if (!window.localExpenses[window.currentTripId]) window.localExpenses[window.currentTripId] = [];
+                window.localExpenses[window.currentTripId].push({ 
+                    id: Date.now(), name, amount, currency, rate: rateAtThisMoment 
+                });
+                window.saveLocalExpenses();
+            } else {
+                const payer = document.getElementById('expensePayer').value;
+                const splitType = document.getElementById('expenseSplitType').value;
+                let customDetailsObj = {};
 
-            window.sharedData.expenses[window.currentTripId].push({ 
-                id: Date.now(), name, amount, currency, payer, splitType, customDetails,
-                rate: rateAtThisMoment, isSettled: false
-            });
+                if (splitType === 'CUSTOM') {
+                    const trip = window.sharedData.trips.find(t => t.id === window.currentTripId);
+                    const members = trip ? trip.members : ['我'];
+                    members.forEach(m => {
+                        const chk = document.getElementById(`split_chk_${m}`);
+                        if (chk && chk.checked) {
+                            const val = parseFloat(document.getElementById(`split_val_${m}`).value) || 0;
+                            customDetailsObj[m] = val;
+                        }
+                    });
+                }
 
-            window.saveSharedData(); 
+                if (!window.sharedData.expenses[window.currentTripId]) window.sharedData.expenses[window.currentTripId] = [];
+                window.sharedData.expenses[window.currentTripId].push({ 
+                    id: Date.now(), name, amount, currency, payer, splitType, customDetailsObj,
+                    rate: rateAtThisMoment, isSettled: false
+                });
+                window.saveSharedData();
+            }
+
             document.getElementById('expenseName').value = ''; 
-            document.getElementById('expenseAmount').value = ''; 
-            document.getElementById('expensePayer').value = '';
-            document.getElementById('expenseSplitDetails').value = '';
+            document.getElementById('expenseAmount').value = '';
             window.renderExpenses();
         };
 
         window.toggleSingleSettle = function(id) {
             const expList = window.sharedData.expenses[window.currentTripId];
             const item = expList.find(e => e.id === id);
-            if(item) {
-                item.isSettled = !item.isSettled;
-                window.saveSharedData();
-            }
+            if(item) { item.isSettled = !item.isSettled; window.saveSharedData(); }
         };
 
         window.deleteExpense = function(id) {
             if(confirm("確定刪除這筆帳目？")) {
-                window.sharedData.expenses[window.currentTripId] = window.sharedData.expenses[window.currentTripId].filter(e => e.id !== id);
-                window.saveSharedData();
+                if (window.expenseMode === 'personal') {
+                    window.localExpenses[window.currentTripId] = window.localExpenses[window.currentTripId].filter(e => e.id !== id);
+                    window.saveLocalExpenses();
+                } else {
+                    window.sharedData.expenses[window.currentTripId] = window.sharedData.expenses[window.currentTripId].filter(e => e.id !== id);
+                    window.saveSharedData();
+                }
+                window.renderExpenses();
             }
         };
 
-        // --- 一鍵算帳：計算誰給誰多少錢 ---
+        // --- 一鍵群組算帳 ---
         window.calculateAllSettlement = function() {
             const expList = window.sharedData.expenses[window.currentTripId] || [];
-            const activeExp = expList.filter(e => !e.isSettled); // 只計算「未單獨結算」的帳目
+            const activeExp = expList.filter(e => !e.isSettled);
 
             if(activeExp.length === 0) {
                 document.getElementById('settlementResult').style.display = 'block';
-                document.getElementById('settlementResult').innerHTML = "<b>🎉 所有帳目都已結清！目前沒有未結清的花費。</b>";
+                document.getElementById('settlementResult').innerHTML = "<b>🎉 群組所有帳目都已結清！</b>";
                 return;
             }
 
-            let balances = {}; // 紀錄每個人的總結餘 (+代表別人要給我錢，-代表我要給別人錢)
+            const trip = window.sharedData.trips.find(t => t.id === window.currentTripId);
+            const members = (trip && trip.members) ? trip.members : ['我'];
+            let balances = {};
+            members.forEach(m => balances[m] = 0);
 
             activeExp.forEach(item => {
                 const rate = item.rate || window.dynamicRates[item.currency];
                 const amountTwd = item.amount * rate;
                 const payer = item.payer;
 
-                if (!balances[payer]) balances[payer] = 0;
-                balances[payer] += amountTwd; // 墊錢的人增加正資產
+                if (balances[payer] !== undefined) balances[payer] += amountTwd;
 
                 if (item.splitType === 'AA') {
-                    // 如果是 AA，先尋找這趟行程的所有已知人員
-                    let people = Object.keys(balances);
-                    if (!people.includes('我')) people.push('我');
-                    const share = amountTwd / people.length;
-                    
-                    people.forEach(p => {
-                        if (!balances[p]) balances[p] = 0;
-                        balances[p] -= share; // 參與分攤者扣除負債
-                    });
-                } else if (item.splitType === 'CUSTOM' && item.customDetails) {
-                    // 自訂格式：小明:1000, 小華:1500
-                    const parts = item.customDetails.split(',');
-                    parts.forEach(part => {
-                        const [person, pAmount] = part.split(':');
-                        if (person && pAmount) {
-                            const pName = person.trim();
-                            const pTwd = parseFloat(pAmount) * rate;
-                            if (!balances[pName]) balances[pName] = 0;
-                            balances[pName] -= pTwd;
-                        }
-                    });
+                    const share = amountTwd / members.length;
+                    members.forEach(m => { balances[m] -= share; });
+                } else if (item.splitType === 'CUSTOM' && item.customDetailsObj) {
+                    for (let m in item.customDetailsObj) {
+                        const pTwd = item.customDetailsObj[m] * rate;
+                        if (balances[m] !== undefined) balances[m] -= pTwd;
+                    }
                 }
             });
 
-            // 運算清算債務 (多退少補最佳化)
-            let debtors = []; // 應付錢的人
-            let creditors = []; // 應收錢的人
-
+            let debtors = []; let creditors = [];
             for (let person in balances) {
                 let bal = Math.round(balances[person]);
                 if (bal < -5) debtors.push({ name: person, amount: -bal });
                 else if (bal > 5) creditors.push({ name: person, amount: bal });
             }
 
-            let html = `<b>🧮 最佳結算方式 (台幣折算)：</b><hr style="border:0; border-top:1px dashed #548235; margin:8px 0;">`;
-            
+            let html = `<b>🧮 群組最佳結算清單 (台幣折算)：</b><hr style="border:0; border-top:1px dashed #548235; margin:8px 0;">`;
             let i = 0, j = 0;
             while (i < debtors.length && j < creditors.length) {
-                let d = debtors[i];
-                let c = creditors[j];
+                let d = debtors[i]; let c = creditors[j];
                 let payment = Math.min(d.amount, c.amount);
-
                 html += `<div>👉 <b>${d.name}</b> 應給 <b>${c.name}</b>：<span style="color:#c0504d; font-weight:bold;">$${Math.round(payment)} TWD</span></div>`;
-
-                d.amount -= payment;
-                c.amount -= payment;
-
-                if (d.amount <= 5) i++;
-                if (c.amount <= 5) j++;
+                d.amount -= payment; c.amount -= payment;
+                if (d.amount <= 5) i++; if (c.amount <= 5) j++;
             }
 
             if (debtors.length === 0 && creditors.length === 0) {
-                html += `<div>大家收支完全平衡，不需要給錢！</div>`;
+                html += `<div>大家收支完全平衡！</div>`;
             }
 
             document.getElementById('settlementResult').style.display = 'block';
@@ -831,35 +906,52 @@
 
         window.renderExpenses = function() {
             const listDiv = document.getElementById('expenseList'); listDiv.innerHTML = ''; let totalTwd = 0;
-            const tripExp = window.sharedData.expenses[window.currentTripId] || [];
             
-            tripExp.forEach(item => {
-                const itemRate = item.rate || window.dynamicRates[item.currency];
-                const twdVal = Math.round(item.amount * itemRate);
-                totalTwd += twdVal;
-                
-                const settledClass = item.isSettled ? 'settled' : '';
-                const settledBtnText = item.isSettled ? '✅ 已結算' : '結算';
+            if (window.expenseMode === 'personal') {
+                const tripExp = window.localExpenses[window.currentTripId] || [];
+                tripExp.forEach(item => {
+                    const itemRate = item.rate || window.dynamicRates[item.currency];
+                    const twdVal = Math.round(item.amount * itemRate);
+                    totalTwd += twdVal;
+                    listDiv.innerHTML += `
+                        <div class="expense-item">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <div style="font-weight:bold;">${item.name}</div>
+                                    <div style="font-size:0.85em; color:#666;">${item.currency} ${item.amount} (約 $${twdVal} TWD)</div>
+                                </div>
+                                <button class="btn-del" onclick="deleteExpense(${item.id})">刪除</button>
+                            </div>
+                        </div>`;
+                });
+            } else {
+                const tripExp = window.sharedData.expenses[window.currentTripId] || [];
+                tripExp.forEach(item => {
+                    const itemRate = item.rate || window.dynamicRates[item.currency];
+                    const twdVal = Math.round(item.amount * itemRate);
+                    totalTwd += twdVal;
+                    
+                    const settledClass = item.isSettled ? 'settled' : '';
+                    const settledBtnText = item.isSettled ? '✅ 已結算' : '結算';
 
-                listDiv.innerHTML += `
-                    <div class="expense-item ${settledClass}">
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                            <div>
-                                <div style="font-weight:bold; font-size:1.05em;">${item.name}</div>
-                                <div style="font-size:0.85em; color:#555; margin-top:3px;">
-                                    💳 <b>${item.payer}</b> 代墊 ｜ ${item.currency} ${item.amount} (約 $${twdVal} TWD)
+                    listDiv.innerHTML += `
+                        <div class="expense-item ${settledClass}">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                <div>
+                                    <div style="font-weight:bold; font-size:1.05em;">${item.name}</div>
+                                    <div style="font-size:0.85em; color:#555; margin-top:3px;">
+                                        💳 <b>${item.payer}</b> 代墊 ｜ ${item.currency} ${item.amount} (約 $${twdVal} TWD)
+                                    </div>
+                                    <div style="font-size:0.75em; color:#888;">模式: ${item.splitType === 'AA' ? 'AA平分' : '自訂金額'}</div>
                                 </div>
-                                <div style="font-size:0.75em; color:#888;">
-                                    模式: ${item.splitType === 'AA' ? 'AA平分' : '自訂金額'} ${item.customDetails ? `(${item.customDetails})` : ''}
+                                <div style="text-align:right;">
+                                    <button class="btn-edit" onclick="toggleSingleSettle(${item.id})">${settledBtnText}</button>
+                                    <button class="btn-del" style="margin-top:5px;" onclick="deleteExpense(${item.id})">刪除</button>
                                 </div>
                             </div>
-                            <div style="text-align:right;">
-                                <button class="btn-edit" onclick="toggleSingleSettle(${item.id})">${settledBtnText}</button>
-                                <button class="btn-del" style="margin-top:5px;" onclick="deleteExpense(${item.id})">刪除</button>
-                            </div>
-                        </div>
-                    </div>`;
-            });
+                        </div>`;
+                });
+            }
             document.getElementById('totalTwd').innerText = `TWD ${totalTwd}`;
         };
 
@@ -869,7 +961,7 @@
             if(pageId === 'homePage') document.getElementById('headerTitle').innerText = '我的旅遊清單';
             else {
                 const tripName = window.sharedData.trips.find(t => t.id === window.currentTripId)?.name || '';
-                document.getElementById('headerTitle').innerText = pageId === 'itineraryPage' ? tripName : `${tripName} - 拆帳金庫`;
+                document.getElementById('headerTitle').innerText = pageId === 'itineraryPage' ? tripName : `${tripName} - 記帳與分帳`;
             }
             window.renderCurrentView();
         };
@@ -884,7 +976,7 @@
                 if (!window.sharedData.categories) window.sharedData.categories = ["住宿", "餐廳", "景點", "交通"];
             } else {
                 window.sharedData = {
-                    trips: [ { id: 'trip_1', name: '福岡 TXT 演唱會之旅', password: '', date: '2026-12-16', days: 6, flights: { outbound: { air: '中華', no: 'CI116', from: 'TPE', to: 'FUK', time_s: '16:25', time_e: '19:35' }, inbound: { air: '中華', no: 'CI111', from: 'FUK', to: 'TPE', time_s: '11:00', time_e: '12:35' } } } ],
+                    trips: [ { id: 'trip_1', name: '福岡 TXT 演唱會之旅', password: '', members: ['我', '小明', '小華'], date: '2026-12-16', days: 6, flights: { outbound: { air: '中華', no: 'CI116', from: 'TPE', to: 'FUK', time_s: '16:25', time_e: '19:35' }, inbound: { air: '中華', no: 'CI111', from: 'FUK', to: 'TPE', time_s: '11:00', time_e: '12:35' } } } ],
                     schedules: {
                         'trip_1': {
                             1: [{ title: "桃園機場", time: "16:25 起飛", type: "交通", res: "已訂位", resTime: "16:25", transport: "中華航空 CI116" }, { title: "福岡機場", time: "19:35 抵達", type: "交通", res: "免預約" }],
