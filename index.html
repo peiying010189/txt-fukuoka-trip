@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="我的旅遊">
-    <title>旅遊行程管理 (雲端同步版)</title>
+    <title>旅遊行程管理 (雲端同步分帳版)</title>
     <link rel="apple-touch-icon" href="travel-bag.png">
     <link rel="icon" href="travel-bag.png">
     <style>
@@ -95,12 +95,14 @@
         .btn-save { background: var(--text-dark); color: #fff; }
         .btn-cancel { background: #eee; color: #333; }
 
-        .expense-summary { background: #fff; padding: 20px; text-align: center; border-radius: 8px; margin-bottom: 20px; position:relative; }
-        .private-tag { position:absolute; top:10px; right:10px; background:#e9e3f4; color:#6b5294; font-size:0.7em; padding:3px 6px; border-radius:4px; font-weight:bold; }
-        .expense-total { font-size: 1.5em; font-weight: bold; color: var(--accent-color); }
-        .expense-item { display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 15px; border-bottom: 1px solid #eee; margin-bottom: 5px; border-radius: 6px; }
-        .add-form { background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-        .add-form input, .add-form select { border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; padding: 8px; }
+        /* 分帳模組造型 */
+        .expense-summary { background: #fff; padding: 18px; text-align: center; border-radius: 12px; margin-bottom: 20px; position:relative; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .expense-total { font-size: 1.6em; font-weight: bold; color: var(--accent-color); margin: 5px 0; }
+        .expense-item { background: #fff; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--border-color); }
+        .expense-item.settled { opacity: 0.5; background: #f9f9f9; }
+        .settle-box { background: #e2f0d9; border: 1px solid #548235; color: #333; padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 0.9em; }
+
+        .add-form { background: #fff; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border-color); }
 
         .page { display: none; }
         .page.active { display: block; }
@@ -136,27 +138,54 @@
         </div>
     </div>
 
-    <!-- 記帳頁 -->
+    <!-- 記帳與分帳頁面 -->
     <div id="expensePage" class="page">
         <div class="content">
             <div class="expense-summary">
-                <span class="private-tag">🔒 僅自己可見</span>
-                <div>我的專屬總花費 (台幣)</div>
+                <div>🤝 旅遊共同總花費 (估算台幣)</div>
                 <div class="expense-total" id="totalTwd">TWD 0</div>
-                <div id="rateInfo" style="font-size: 0.8em; color: #888; margin-top: 8px;">🔄 正在抓取今日最新匯率...</div>
+                <div id="rateInfo" style="font-size: 0.75em; color: #888; margin-top: 4px;">🔄 正在抓取今日最新匯率...</div>
             </div>
+
+            <!-- 結算結果跳出區 -->
+            <button class="btn-main" style="background:#548235; margin-bottom:15px;" onclick="calculateAllSettlement()">🧮 算帳！一鍵總結算 (誰給誰多少錢)</button>
+            <div id="settlementResult" style="display:none;" class="settle-box"></div>
+
+            <!-- 新增記帳表單 -->
             <div class="add-form">
-                <input type="text" id="expenseName" placeholder="花費項目 (例如: 晚餐)" style="width: 100%; margin-bottom: 10px;">
-                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                <h4 style="margin:0 0 10px 0; color:var(--accent-color);">新增一筆支出 / 代墊款</h4>
+                <div class="form-group"><input type="text" id="expenseName" placeholder="花費項目 (例: 敘敘苑晚餐)"></div>
+                
+                <div class="flex-row">
                     <input type="number" id="expenseAmount" placeholder="金額" style="flex:2;">
-                    <select id="expenseCurrency" style="flex:1; background:#fff;">
+                    <select id="expenseCurrency" style="flex:1;">
                         <option value="JPY">日幣 JPY</option>
                         <option value="KRW">韓元 KRW</option>
                         <option value="TWD">台幣 TWD</option>
                     </select>
                 </div>
-                <button class="btn-main" style="margin-bottom:0;" onclick="addExpense()">記一筆私人花費 (鎖定當前匯率)</button>
+
+                <div class="form-group">
+                    <label>💳 誰先墊錢？(付款人)</label>
+                    <input type="text" id="expensePayer" placeholder="例: 我 / 小明 / 小華">
+                </div>
+
+                <div class="form-group">
+                    <label>👥 分攤方式</label>
+                    <select id="expenseSplitType" onchange="toggleSplitFields()">
+                        <option value="AA">大家平分 (AA制)</option>
+                        <option value="CUSTOM">指定人員 / 自訂金額</option>
+                    </select>
+                </div>
+
+                <div id="customSplitField" class="form-group" style="display:none; background:#f9f9f9; padding:10px; border-radius:6px;">
+                    <label>填寫參與分攤的人與金額 (逗號隔開)</label>
+                    <input type="text" id="expenseSplitDetails" placeholder="例: 小明:1000, 小華:1500">
+                </div>
+
+                <button class="btn-main" style="margin-bottom:0;" onclick="addExpense()">記下一筆帳</button>
             </div>
+
             <div id="expenseList"></div>
         </div>
     </div>
@@ -201,7 +230,7 @@
         </div>
     </div>
 
-    <!-- 密碼輸入專屬安全 Modal -->
+    <!-- 密碼驗證 Modal -->
     <div id="passwordModal" class="modal" style="z-index: 300;">
         <div class="modal-content" style="width: 80%; max-width: 320px; text-align: center; margin-top: 25vh;">
             <h3 style="margin-top:0; color:var(--accent-color);">🔒 安全驗證</h3>
@@ -269,10 +298,9 @@
     <div class="bottom-nav">
         <div class="nav-item active" id="navHome" onclick="goToHome()"><div class="nav-icon">🏠</div><div>首頁</div></div>
         <div class="nav-item" id="navSchedule" onclick="switchPage('itineraryPage', this)" style="display:none;"><div class="nav-icon">📅</div><div>行程清單</div></div>
-        <div class="nav-item" id="navExpense" onclick="switchPage('expensePage', this)" style="display:none;"><div class="nav-icon">💰</div><div>我的記帳</div></div>
+        <div class="nav-item" id="navExpense" onclick="switchPage('expensePage', this)" style="display:none;"><div class="nav-icon">💰</div><div>拆帳金庫</div></div>
     </div>
 
-    <!-- 載入 Firebase 模組 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
@@ -291,18 +319,15 @@
         const db = getDatabase(app);
         const dbRef = ref(db, 'sharedTravelData');
 
-        window.sharedData = { trips: [], schedules: {}, categories: [] };
-        window.localExpenses = JSON.parse(localStorage.getItem('myPrivateExpenses')) || {};
+        window.sharedData = { trips: [], schedules: {}, expenses: {}, categories: [] };
         window.unlockedTrips = JSON.parse(localStorage.getItem('myUnlockedTrips')) || {};
         
         window.currentTripId = null;
         window.currentDay = 1;
         window.dynamicRates = { JPY: 0.21, KRW: 0.024, TWD: 1 };
-        window.pendingTripAction = null; 
-        window.pendingTripId = null;
+        window.pendingTripAction = null; window.pendingTripId = null;
 
         window.saveSharedData = function() { set(dbRef, window.sharedData); };
-        window.saveLocalExpenses = function() { localStorage.setItem('myPrivateExpenses', JSON.stringify(window.localExpenses)); };
         window.saveUnlockedTrips = function() { localStorage.setItem('myUnlockedTrips', JSON.stringify(window.unlockedTrips)); };
 
         async function fetchExchangeRates() {
@@ -317,7 +342,7 @@
                         1 KRW = ${window.dynamicRates.KRW.toFixed(4)} TWD`;
                 }
             } catch(e) {
-                document.getElementById('rateInfo').innerText = "⚠️ 無法連線網路抓取匯率，目前使用預設安全匯率";
+                document.getElementById('rateInfo').innerText = "⚠️ 使用預設保護匯率";
             }
         }
         fetchExchangeRates();
@@ -388,7 +413,6 @@
             });
         };
 
-        // --- 防護 1：點擊編輯時，如果沒解鎖要先擋下 ---
         window.triggerEditTrip = function(tripId) {
             const trip = window.sharedData.trips.find(t => t.id === tripId);
             if (trip.password && window.unlockedTrips[tripId] !== trip.password) {
@@ -431,7 +455,6 @@
         
         window.closeTripModal = function() { document.getElementById('tripModal').style.display = 'none'; };
         
-        // --- 防護 2：儲存修改時，如果是改密碼要輸入舊密碼確認 ---
         window.saveTrip = function() {
             const editId = document.getElementById('t_edit_id').value;
             const name = document.getElementById('t_name').value;
@@ -450,22 +473,15 @@
                 const tripIndex = window.sharedData.trips.findIndex(t => t.id === editId);
                 const origTrip = window.sharedData.trips[tripIndex];
 
-                // 檢查是否正在試圖修改或移除既有密碼
                 if (origTrip.password && origTrip.password !== password) {
-                    const checkPwd = prompt(`🛡️ 安全確認：\n您正在嘗試修改或移除「${origTrip.name}」的密碼。\n請輸入【舊密碼】以確認修改：`);
+                    const checkPwd = prompt(`🛡️ 安全確認：\n修改密碼請輸入【舊密碼】：`);
                     if (checkPwd === null) return;
-                    if (checkPwd !== origTrip.password) {
-                        alert("舊密碼驗證失敗！設定未儲存。");
-                        return;
-                    }
-                    // 修改成功，更新本機鑰匙
+                    if (checkPwd !== origTrip.password) return alert("舊密碼驗證失敗！");
                     if (password) window.unlockedTrips[editId] = password;
                     else delete window.unlockedTrips[editId];
                     window.saveUnlockedTrips();
                 } else if (!origTrip.password && password) {
-                    // 原本沒密碼，現在新增密碼
-                    window.unlockedTrips[editId] = password;
-                    window.saveUnlockedTrips();
+                    window.unlockedTrips[editId] = password; window.saveUnlockedTrips();
                 }
 
                 window.sharedData.trips[tripIndex] = { id: editId, name, password, date, days, flights };
@@ -473,63 +489,49 @@
                 const newTripId = 'trip_' + Date.now();
                 window.sharedData.trips.push({ id: newTripId, name, password, date, days, flights });
                 window.sharedData.schedules[newTripId] = {};
-                window.localExpenses[newTripId] = [];
+                window.sharedData.expenses[newTripId] = [];
                 if(password) { window.unlockedTrips[newTripId] = password; window.saveUnlockedTrips(); }
             }
-            window.saveSharedData(); window.saveLocalExpenses(); window.closeTripModal();
+            window.saveSharedData(); window.closeTripModal();
         };
 
-        // --- 防護 3：刪除行程前要求輸入密碼 ---
         window.deleteTrip = function() {
             const editId = document.getElementById('t_edit_id').value;
             const origTrip = window.sharedData.trips.find(t => t.id === editId);
 
             if (origTrip.password) {
-                const checkPwd = prompt(`🛡️ 刪除安全確認：\n這趟旅遊已上鎖！\n請輸入「${origTrip.name}」的密碼以確認刪除權限：`);
+                const checkPwd = prompt(`🛡️ 請輸入密碼以刪除行程：`);
                 if (checkPwd === null) return;
-                if (checkPwd !== origTrip.password) {
-                    alert("密碼驗證失敗！無法刪除。");
-                    return;
-                }
+                if (checkPwd !== origTrip.password) return alert("密碼錯誤！");
             }
 
-            if(confirm('確定要刪除這整趟旅遊嗎？這會同時刪除雲端上所有的相關行程！')) {
+            if(confirm('確定要刪除這整趟旅遊嗎？')) {
                 window.sharedData.trips = window.sharedData.trips.filter(t => t.id !== editId);
-                delete window.sharedData.schedules[editId]; delete window.localExpenses[editId];
+                delete window.sharedData.schedules[editId]; delete window.sharedData.expenses[editId];
                 delete window.unlockedTrips[editId];
-                window.saveSharedData(); window.saveLocalExpenses(); window.saveUnlockedTrips(); window.closeTripModal();
+                window.saveSharedData(); window.saveUnlockedTrips(); window.closeTripModal();
             }
         };
 
         window.openPasswordModal = function(tripId, tripName, action) {
-            window.pendingTripId = tripId;
-            window.pendingTripAction = action; // 'enter' 或 'edit'
-            document.getElementById('pwdTripName').innerText = tripName;
-            document.getElementById('enter_pwd').value = '';
+            window.pendingTripId = tripId; window.pendingTripAction = action;
+            document.getElementById('pwdTripName').innerText = tripName; document.getElementById('enter_pwd').value = '';
             document.getElementById('passwordModal').style.display = 'block';
         };
 
         window.closePasswordModal = function() {
-            window.pendingTripId = null;
-            window.pendingTripAction = null;
+            window.pendingTripId = null; window.pendingTripAction = null;
             document.getElementById('passwordModal').style.display = 'none';
         };
 
         window.verifyPassword = function() {
             const pwd = document.getElementById('enter_pwd').value;
-            const tripId = window.pendingTripId;
-            const action = window.pendingTripAction;
+            const tripId = window.pendingTripId; const action = window.pendingTripAction;
             const trip = window.sharedData.trips.find(t => t.id === tripId);
             
-            if (pwd !== trip.password) {
-                alert("密碼錯誤！存取遭到拒絕。");
-                return;
-            }
+            if (pwd !== trip.password) return alert("密碼錯誤！存取遭到拒絕。");
             
-            window.unlockedTrips[tripId] = trip.password;
-            window.saveUnlockedTrips();
-            window.closePasswordModal();
-            
+            window.unlockedTrips[tripId] = trip.password; window.saveUnlockedTrips(); window.closePasswordModal();
             if (action === 'enter') window.proceedToEnterTrip(tripId);
             else if (action === 'edit') window.openTripModal(tripId);
         };
@@ -547,7 +549,7 @@
             window.currentTripId = tripId; window.currentDay = 1;
             document.getElementById('navSchedule').style.display = 'block';
             document.getElementById('navExpense').style.display = 'block';
-            if (!window.localExpenses[tripId]) { window.localExpenses[tripId] = []; window.saveLocalExpenses(); }
+            if (!window.sharedData.expenses[tripId]) { window.sharedData.expenses[tripId] = []; window.saveSharedData(); }
             window.renderCategories(); window.switchPage('itineraryPage', document.getElementById('navSchedule'));
         };
 
@@ -598,8 +600,8 @@
                         ${item.transport ? `<div class="transport-box"><span class="icon">🚇</span> ${item.transport}</div>` : ''}
                         ${noteHtml}
                         <div class="action-btns">
-                            <button class="btn-move" onclick="moveSchedule(${index}, -1)" title="向上移">⬆️</button>
-                            <button class="btn-move" onclick="moveSchedule(${index}, 1)" title="向下移">⬇️</button>
+                            <button class="btn-move" onclick="moveSchedule(${index}, -1)">⬆️</button>
+                            <button class="btn-move" onclick="moveSchedule(${index}, 1)">⬇️</button>
                             <div style="flex-grow:1;"></div>
                             <button class="btn-edit" onclick="openScheduleModal(${index})">編輯</button>
                             <button class="btn-del" onclick="deleteSchedule(${index})">刪除</button>
@@ -642,7 +644,6 @@
 
         window.openScheduleModal = function(index = -1) {
             document.getElementById('scheduleModal').style.display = 'block'; document.getElementById('editIndex').value = index;
-            
             const moveSelect = document.getElementById('f_move_day'); moveSelect.innerHTML = '';
             const trip = window.sharedData.trips.find(t => t.id === window.currentTripId);
             for (let i = 1; i <= trip.days; i++) { moveSelect.innerHTML += `<option value="${i}">Day ${i}</option>`; }
@@ -654,7 +655,6 @@
                     document.getElementById(id).value = item[id.replace('f_','').replace('res_open','resOpenDate').replace('res_time','resTime')] || '';
                 });
                 document.getElementById('f_type').value = item.type || '景點'; document.getElementById('f_res').value = item.res || '免預約';
-                
                 document.getElementById('field_move_day').style.display = 'block'; document.getElementById('f_move_day').value = window.currentDay;
             } else {
                 document.getElementById('modalTitle').innerText = "新增行程";
@@ -699,40 +699,168 @@
             }
         };
 
+        // --- 多人群組拆帳核心系統 (大家即時同步) ---
+        window.toggleSplitFields = function() {
+            const type = document.getElementById('expenseSplitType').value;
+            document.getElementById('customSplitField').style.display = (type === 'CUSTOM') ? 'block' : 'none';
+        };
+
         window.addExpense = function() {
-            const name = document.getElementById('expenseName').value; const amount = parseFloat(document.getElementById('expenseAmount').value);
+            const name = document.getElementById('expenseName').value; 
+            const amount = parseFloat(document.getElementById('expenseAmount').value);
             const currency = document.getElementById('expenseCurrency').value;
-            if(!name || isNaN(amount)) return alert("請輸入花費資料");
+            const payer = document.getElementById('expensePayer').value.trim() || '我';
+            const splitType = document.getElementById('expenseSplitType').value;
+            const customDetails = document.getElementById('expenseSplitDetails').value.trim();
+
+            if(!name || isNaN(amount)) return alert("請輸入完整的項目名稱與金額！");
             
             const rateAtThisMoment = window.dynamicRates[currency];
-            window.localExpenses[window.currentTripId].push({ name, amount, currency, id: Date.now(), rate: rateAtThisMoment });
-            window.saveLocalExpenses(); document.getElementById('expenseName').value = ''; document.getElementById('expenseAmount').value = ''; window.renderExpenses();
+
+            if(!window.sharedData.expenses[window.currentTripId]) window.sharedData.expenses[window.currentTripId] = [];
+
+            window.sharedData.expenses[window.currentTripId].push({ 
+                id: Date.now(), name, amount, currency, payer, splitType, customDetails,
+                rate: rateAtThisMoment, isSettled: false
+            });
+
+            window.saveSharedData(); 
+            document.getElementById('expenseName').value = ''; 
+            document.getElementById('expenseAmount').value = ''; 
+            document.getElementById('expensePayer').value = '';
+            document.getElementById('expenseSplitDetails').value = '';
+            window.renderExpenses();
+        };
+
+        window.toggleSingleSettle = function(id) {
+            const expList = window.sharedData.expenses[window.currentTripId];
+            const item = expList.find(e => e.id === id);
+            if(item) {
+                item.isSettled = !item.isSettled;
+                window.saveSharedData();
+            }
         };
 
         window.deleteExpense = function(id) {
-            window.localExpenses[window.currentTripId] = window.localExpenses[window.currentTripId].filter(e => e.id !== id); 
-            window.saveLocalExpenses(); window.renderExpenses();
+            if(confirm("確定刪除這筆帳目？")) {
+                window.sharedData.expenses[window.currentTripId] = window.sharedData.expenses[window.currentTripId].filter(e => e.id !== id);
+                window.saveSharedData();
+            }
+        };
+
+        // --- 一鍵算帳：計算誰給誰多少錢 ---
+        window.calculateAllSettlement = function() {
+            const expList = window.sharedData.expenses[window.currentTripId] || [];
+            const activeExp = expList.filter(e => !e.isSettled); // 只計算「未單獨結算」的帳目
+
+            if(activeExp.length === 0) {
+                document.getElementById('settlementResult').style.display = 'block';
+                document.getElementById('settlementResult').innerHTML = "<b>🎉 所有帳目都已結清！目前沒有未結清的花費。</b>";
+                return;
+            }
+
+            let balances = {}; // 紀錄每個人的總結餘 (+代表別人要給我錢，-代表我要給別人錢)
+
+            activeExp.forEach(item => {
+                const rate = item.rate || window.dynamicRates[item.currency];
+                const amountTwd = item.amount * rate;
+                const payer = item.payer;
+
+                if (!balances[payer]) balances[payer] = 0;
+                balances[payer] += amountTwd; // 墊錢的人增加正資產
+
+                if (item.splitType === 'AA') {
+                    // 如果是 AA，先尋找這趟行程的所有已知人員
+                    let people = Object.keys(balances);
+                    if (!people.includes('我')) people.push('我');
+                    const share = amountTwd / people.length;
+                    
+                    people.forEach(p => {
+                        if (!balances[p]) balances[p] = 0;
+                        balances[p] -= share; // 參與分攤者扣除負債
+                    });
+                } else if (item.splitType === 'CUSTOM' && item.customDetails) {
+                    // 自訂格式：小明:1000, 小華:1500
+                    const parts = item.customDetails.split(',');
+                    parts.forEach(part => {
+                        const [person, pAmount] = part.split(':');
+                        if (person && pAmount) {
+                            const pName = person.trim();
+                            const pTwd = parseFloat(pAmount) * rate;
+                            if (!balances[pName]) balances[pName] = 0;
+                            balances[pName] -= pTwd;
+                        }
+                    });
+                }
+            });
+
+            // 運算清算債務 (多退少補最佳化)
+            let debtors = []; // 應付錢的人
+            let creditors = []; // 應收錢的人
+
+            for (let person in balances) {
+                let bal = Math.round(balances[person]);
+                if (bal < -5) debtors.push({ name: person, amount: -bal });
+                else if (bal > 5) creditors.push({ name: person, amount: bal });
+            }
+
+            let html = `<b>🧮 最佳結算方式 (台幣折算)：</b><hr style="border:0; border-top:1px dashed #548235; margin:8px 0;">`;
+            
+            let i = 0, j = 0;
+            while (i < debtors.length && j < creditors.length) {
+                let d = debtors[i];
+                let c = creditors[j];
+                let payment = Math.min(d.amount, c.amount);
+
+                html += `<div>👉 <b>${d.name}</b> 應給 <b>${c.name}</b>：<span style="color:#c0504d; font-weight:bold;">$${Math.round(payment)} TWD</span></div>`;
+
+                d.amount -= payment;
+                c.amount -= payment;
+
+                if (d.amount <= 5) i++;
+                if (c.amount <= 5) j++;
+            }
+
+            if (debtors.length === 0 && creditors.length === 0) {
+                html += `<div>大家收支完全平衡，不需要給錢！</div>`;
+            }
+
+            document.getElementById('settlementResult').style.display = 'block';
+            document.getElementById('settlementResult').innerHTML = html;
         };
 
         window.renderExpenses = function() {
             const listDiv = document.getElementById('expenseList'); listDiv.innerHTML = ''; let totalTwd = 0;
-            const tripExp = window.localExpenses[window.currentTripId] || [];
+            const tripExp = window.sharedData.expenses[window.currentTripId] || [];
+            
             tripExp.forEach(item => {
                 const itemRate = item.rate || window.dynamicRates[item.currency];
-                totalTwd += item.amount * itemRate;
+                const twdVal = Math.round(item.amount * itemRate);
+                totalTwd += twdVal;
+                
+                const settledClass = item.isSettled ? 'settled' : '';
+                const settledBtnText = item.isSettled ? '✅ 已結算' : '結算';
+
                 listDiv.innerHTML += `
-                    <div class="expense-item">
-                        <div>
-                            <div style="font-weight:bold;">${item.name}</div>
-                            <div style="font-size:0.85em; color:#666;">
-                                ${item.currency} ${item.amount} 
-                                <span style="font-size:0.8em; color:#aaa; margin-left:5px;">(當時匯率: ${itemRate.toFixed(4)})</span>
+                    <div class="expense-item ${settledClass}">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                            <div>
+                                <div style="font-weight:bold; font-size:1.05em;">${item.name}</div>
+                                <div style="font-size:0.85em; color:#555; margin-top:3px;">
+                                    💳 <b>${item.payer}</b> 代墊 ｜ ${item.currency} ${item.amount} (約 $${twdVal} TWD)
+                                </div>
+                                <div style="font-size:0.75em; color:#888;">
+                                    模式: ${item.splitType === 'AA' ? 'AA平分' : '自訂金額'} ${item.customDetails ? `(${item.customDetails})` : ''}
+                                </div>
+                            </div>
+                            <div style="text-align:right;">
+                                <button class="btn-edit" onclick="toggleSingleSettle(${item.id})">${settledBtnText}</button>
+                                <button class="btn-del" style="margin-top:5px;" onclick="deleteExpense(${item.id})">刪除</button>
                             </div>
                         </div>
-                        <button class="btn-del" onclick="deleteExpense(${item.id})">刪除</button>
                     </div>`;
             });
-            document.getElementById('totalTwd').innerText = `TWD ${Math.round(totalTwd)}`;
+            document.getElementById('totalTwd').innerText = `TWD ${totalTwd}`;
         };
 
         window.switchPage = function(pageId, navItem) {
@@ -741,7 +869,7 @@
             if(pageId === 'homePage') document.getElementById('headerTitle').innerText = '我的旅遊清單';
             else {
                 const tripName = window.sharedData.trips.find(t => t.id === window.currentTripId)?.name || '';
-                document.getElementById('headerTitle').innerText = pageId === 'itineraryPage' ? tripName : `${tripName} - 記帳`;
+                document.getElementById('headerTitle').innerText = pageId === 'itineraryPage' ? tripName : `${tripName} - 拆帳金庫`;
             }
             window.renderCurrentView();
         };
@@ -752,6 +880,7 @@
                 window.sharedData = data;
                 if (!window.sharedData.trips) window.sharedData.trips = [];
                 if (!window.sharedData.schedules) window.sharedData.schedules = {};
+                if (!window.sharedData.expenses) window.sharedData.expenses = {};
                 if (!window.sharedData.categories) window.sharedData.categories = ["住宿", "餐廳", "景點", "交通"];
             } else {
                 window.sharedData = {
@@ -762,6 +891,7 @@
                             2: [{ title: "Bread, Espresso & Hakata", time: "08:00", type: "餐廳", meal: "早餐", res: "未預訂", recs: "鐵板法式吐司", note: "這間不能預約，提早去排隊！" }]
                         }
                     },
+                    expenses: { 'trip_1': [] },
                     categories: ["住宿", "餐廳", "景點", "交通"]
                 };
                 set(dbRef, window.sharedData);
