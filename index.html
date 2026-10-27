@@ -95,7 +95,6 @@
         .btn-save { background: var(--text-dark); color: #fff; }
         .btn-cancel { background: #eee; color: #333; }
 
-        /* 修改：適應手機版選單樣式 */
         .mode-switch { 
             display: flex; 
             width: 100%; 
@@ -167,7 +166,7 @@
     <!-- 記帳與分帳頁面 -->
     <div id="expensePage" class="page">
         <div class="content">
-            <!-- 模式切換按鈕 (已針對手機尺寸強化) -->
+            <!-- 模式切換按鈕 -->
             <div class="mode-switch">
                 <div class="mode-btn active" id="btnModePersonal" onclick="switchExpenseMode('personal')">🔒 私人記帳</div>
                 <div class="mode-btn" id="btnModeGroup" onclick="switchExpenseMode('group')">👥 團體分帳</div>
@@ -241,10 +240,10 @@
                 <input type="password" id="t_password" placeholder="留白表示公開，有填代表上鎖">
             </div>
 
-            <!-- 群組成員設定欄位 -->
+            <!-- 群組成員設定欄位（每趟行程獨立） -->
             <div class="form-group">
-                <label style="color:var(--accent-color);">👥 群組同行成員 (用來分帳，名字用逗號隔開)</label>
-                <input type="text" id="t_members" placeholder="例: 我, 小明, 小華, 媽媽">
+                <label style="color:var(--accent-color);">👥 本趟行程同行成員 (分帳用，用逗號隔開)</label>
+                <input type="text" id="t_members" placeholder="例: 我, 小明, 小華">
             </div>
 
             <div class="flex-row">
@@ -479,7 +478,7 @@
                 document.getElementById('t_edit_id').value = trip.id;
                 document.getElementById('t_name').value = trip.name;
                 document.getElementById('t_password').value = trip.password || ''; 
-                document.getElementById('t_members').value = trip.members ? trip.members.join(', ') : '';
+                document.getElementById('t_members').value = (trip.members && trip.members.length > 0) ? trip.members.join(', ') : '我';
                 document.getElementById('t_date').value = trip.date;
                 document.getElementById('t_days').value = trip.days;
                 
@@ -497,6 +496,7 @@
                 document.getElementById('tripModalTitle').innerText = "新增旅遊";
                 document.getElementById('t_edit_id').value = '';
                 fields.forEach(f => document.getElementById(f).value = '');
+                document.getElementById('t_members').value = '我'; // 新增時給予獨立預設值
                 document.getElementById('btnDeleteTrip').style.display = 'none';
             }
         };
@@ -508,6 +508,7 @@
             const name = document.getElementById('t_name').value;
             const password = document.getElementById('t_password').value.trim(); 
             const membersRaw = document.getElementById('t_members').value.trim();
+            // 確保每趟行程解析自己的成員名單
             const members = membersRaw ? membersRaw.split(',').map(m => m.trim()).filter(m => m) : ['我'];
             const date = document.getElementById('t_date').value;
             const days = parseInt(document.getElementById('t_days').value);
@@ -767,6 +768,7 @@
             window.renderExpenses();
         };
 
+        // 精準抓取當前行程專屬的成員名單
         window.setupGroupDropdowns = function() {
             const trip = window.sharedData.trips.find(t => t.id === window.currentTripId);
             const members = (trip && trip.members && trip.members.length > 0) ? trip.members : ['我'];
@@ -792,8 +794,10 @@
         window.toggleMemberInput = function(name) {
             const chk = document.getElementById(`split_chk_${name}`);
             const input = document.getElementById(`split_val_${name}`);
-            input.disabled = !chk.checked;
-            if(!chk.checked) input.value = '';
+            if (chk && input) {
+                input.disabled = !chk.checked;
+                if(!chk.checked) input.value = '';
+            }
         };
 
         window.toggleSplitFields = function() {
@@ -822,7 +826,7 @@
 
                 if (splitType === 'CUSTOM') {
                     const trip = window.sharedData.trips.find(t => t.id === window.currentTripId);
-                    const members = trip ? trip.members : ['我'];
+                    const members = (trip && trip.members) ? trip.members : ['我'];
                     members.forEach(m => {
                         const chk = document.getElementById(`split_chk_${m}`);
                         if (chk && chk.checked) {
@@ -875,7 +879,7 @@
             }
 
             const trip = window.sharedData.trips.find(t => t.id === window.currentTripId);
-            const members = (trip && trip.members) ? trip.members : ['我'];
+            const members = (trip && trip.members && trip.members.length > 0) ? trip.members : ['我'];
             let balances = {};
             members.forEach(m => balances[m] = 0);
 
@@ -888,7 +892,7 @@
 
                 if (item.splitType === 'AA') {
                     const share = amountTwd / members.length;
-                    members.forEach(m => { balances[m] -= share; });
+                    members.forEach(m => { if (balances[m] !== undefined) balances[m] -= share; });
                 } else if (item.splitType === 'CUSTOM' && item.customDetailsObj) {
                     for (let m in item.customDetailsObj) {
                         const pTwd = item.customDetailsObj[m] * rate;
